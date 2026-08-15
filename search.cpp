@@ -584,6 +584,49 @@ static int alphabeta(Board& pos, int depth, int ply, int alpha, int beta, int ro
 
     if (depth <= 0)
         return finish(quiescence(pos, alpha, beta, ply));
+
+    // TT PROBE
+    uint64_t tt_t0 = now_ns();
+    prof.ab_tt_calls++;
+
+    TTEntry tte;
+    Move ttMove = 0;
+
+    if (tt_probe(pos.hash, tte)) {
+        if (tte.depth >= depth) {
+            int ttScore = from_tt(tte.score, ply);
+            prof.ab_tt_ns += now_ns() - tt_t0;
+
+            if (tte.flag == TT_EXACT) {
+                stat_tt_cut++;
+                return finish(ttScore);
+            }
+            if (tte.flag == TT_ALPHA && ttScore <= alpha) {
+                stat_tt_cut++;
+                return finish(ttScore);
+            }
+            if (tte.flag == TT_BETA && ttScore >= beta) {
+                stat_tt_cut++;
+                return finish(ttScore);
+            }
+        }
+        ttMove = (Move)tte.move;
+
+        // Validate TT move
+        if (ttMove) {
+            bool legal = false;
+            MoveList legalMoves;
+            generate_legal(pos, legalMoves);
+            for (int i = 0; i < legalMoves.size; i++)
+                if (legalMoves.moves[i] == ttMove)
+                    legal = true;
+            if (!legal)
+                ttMove = 0;
+        }
+
+    }
+    prof.ab_tt_ns += now_ns() - tt_t0;
+
     int staticEval = evaluate(pos);
 
     // --- RAZORING (safe version) ---
@@ -643,49 +686,6 @@ static int alphabeta(Board& pos, int depth, int ply, int alpha, int beta, int ro
     }
 
     prof.ab_null_ns += now_ns() - nm_t0;
-
-
-    // TT PROBE
-    uint64_t tt_t0 = now_ns();
-    prof.ab_tt_calls++;
-
-    TTEntry tte;
-    Move ttMove = 0;
-
-    if (tt_probe(pos.hash, tte)) {
-        if (tte.depth >= depth) {
-            int ttScore = from_tt(tte.score, ply);
-            prof.ab_tt_ns += now_ns() - tt_t0;
-
-            if (tte.flag == TT_EXACT) {
-                stat_tt_cut++;
-                return finish(ttScore);
-            }
-            if (tte.flag == TT_ALPHA && ttScore <= alpha) {
-                stat_tt_cut++;
-                return finish(ttScore);
-            }
-            if (tte.flag == TT_BETA && ttScore >= beta) {
-                stat_tt_cut++;
-                return finish(ttScore);
-            }
-        }
-        ttMove = (Move)tte.move;
-
-        // Validate TT move
-        if (ttMove) {
-            bool legal = false;
-            MoveList legalMoves;
-            generate_legal(pos, legalMoves);
-            for (int i = 0; i < legalMoves.size; i++)
-                if (legalMoves.moves[i] == ttMove)
-                    legal = true;
-            if (!legal)
-                ttMove = 0;
-        }
-
-    }
-    prof.ab_tt_ns += now_ns() - tt_t0;
 
     // MOVEGEN
     uint64_t mg_t0 = now_ns();
