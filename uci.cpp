@@ -120,25 +120,52 @@ static void cmd_position(const std::string& line) {
 // ------------------------------------------------------------
 static void cmd_go(const std::string& line) {
     int depth = 0;
+    int wtime = -1, btime = -1;
+    int winc = 0, binc = 0;
+    bool infinite = false;
 
     std::istringstream iss(line);
     std::string tok;
     iss >> tok;
 
     while (iss >> tok) {
-        if (tok == "depth")
-            iss >> depth;
+        if (tok == "depth")        iss >> depth;
+        else if (tok == "wtime")   iss >> wtime;
+        else if (tok == "btime")   iss >> btime;
+        else if (tok == "winc")    iss >> winc;
+        else if (tok == "binc")    iss >> binc;
+        else if (tok == "infinite") infinite = true;
     }
 
-    if (depth <= 0)
-        depth = 5;
+    // depth search
+    if (depth > 0) {
+        Move best = search_bestmove(g_board, 99999999); // unlimited time
+        std::cout << "bestmove " << move_to_string(best) << "\n";
+        return;
+    }
 
-    Move best = search_bestmove(g_board, depth);
+    // infinite search
+    if (infinite) {
+        Move best = search_bestmove(g_board, 99999999);
+        std::cout << "bestmove " << move_to_string(best) << "\n";
+        return;
+    }
 
+    // time management
+    int movetime = 0;
+    Color stm = g_board.stm;
+
+    if (stm == WHITE && wtime >= 0)
+        movetime = wtime / 20 + winc / 2;
+    else if (stm == BLACK && btime >= 0)
+        movetime = btime / 20 + binc / 2;
+
+    if (movetime <= 0)
+        movetime = 50;
+
+    Move best = search_bestmove(g_board, movetime);
     std::cout << "bestmove " << move_to_string(best) << "\n";
 }
-
-
 
 // ------------------------------------------------------------
 // UCI LOOP

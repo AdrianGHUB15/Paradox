@@ -1,38 +1,66 @@
+#include <chrono>
+#include <iostream>
 #include "board.h"
 #include "eval.h"
 #include "movegen.h"
-#include <iostream>
-#include <chrono>
 
-uint64_t nodes;   // global node counter
+uint64_t nodes = 0;
+std::chrono::steady_clock::time_point startTime;
+int TIME_LIMIT_MS = 0;
 
-int negamax(Board& pos, int depth, int alpha, int beta) {
+bool time_up() {
+    auto now = std::chrono::steady_clock::now();
+    int ms = (int)std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
+    return ms >= TIME_LIMIT_MS;
+}
+
+int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len) {
     nodes++;
 
-    if (depth == 0)
+    if (time_up())
+        return 0;
+
+    if (depth == 0) {
+        pv_len = 0;
         return evaluate(pos);
+    }
 
     MoveList list;
     generate_legal(pos, list);
 
     if (list.size == 0) {
+        pv_len = 0;
         if (in_check(pos, pos.stm))
             return -30000;
         return 0;
     }
 
-    int best = -100000000;
+    int bestScore = -100000000;
+    Move bestMove = 0;
+
+    Move childPV[128];
+    int childPV_len = 0;
 
     for (int i = 0; i < list.size; i++) {
         Move m = list.moves[i];
         State st;
 
         pos.make_move(m, st);
-        int score = -negamax(pos, depth - 1, -beta, -alpha);
+        int score = -negamax(pos, depth - 1, -beta, -alpha, childPV, childPV_len);
         pos.unmake_move(st);
 
-        if (score > best)
-            best = score;
+        if (time_up())
+            break;
+
+        if (score > bestScore) {
+            bestScore = score;
+            bestMove = m;
+
+            pv[0] = m;
+            for (int j = 0; j < childPV_len; j++)
+                pv[j + 1] = childPV[j];
+            pv_len = childPV_len + 1;
+        }
 
         if (score > alpha)
             alpha = score;
@@ -41,53 +69,48 @@ int negamax(Board& pos, int depth, int alpha, int beta) {
             break;
     }
 
-    return best;
+    return bestScore;
 }
 
-Move search_bestmove(Board& pos, int maxDepth) {
+Move search_bestmove(Board& pos, int movetime) {
+    TIME_LIMIT_MS = movetime;
+    startTime = std::chrono::steady_clock::now();
 
     Move bestMove = 0;
+    Move pv[128];
+    int pv_len = 0;
 
-    for (int depth = 1; depth <= maxDepth; depth++) {
+    for (int depth = 1; depth <= 99; depth++) {
 
         nodes = 0;
-        auto start = std::chrono::high_resolution_clock::now();
+        auto dstart = std::chrono::steady_clock::now();
 
-        MoveList list;
-        generate_legal(pos, list);
+        int score = negamax(pos, depth, -100000000, 100000000, pv, pv_len);
 
-        int bestScore = -100000000;
-
-        for (int i = 0; i < list.size; i++) {
-            Move m = list.moves[i];
-            State st;
-
-            pos.make_move(m, st);
-            int score = -negamax(pos, depth - 1, -100000000, 100000000);
-            pos.unmake_move(st);
-
-            if (score > bestScore) {
-                bestScore = score;
-                bestMove = m;
-            }
-        }
-
-        auto end = std::chrono::high_resolution_clock::now();
-        uint64_t ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        auto dend = std::chrono::steady_clock::now();
+        int ms = (int)std::chrono::duration_cast<std::chrono::milliseconds>(dend - dstart).count();
         if (ms == 0) ms = 1;
 
         uint64_t nps = nodes * 1000 / ms;
 
-        std::string pv = move_to_string(bestMove);
+        if (pv_len > 0)
+            bestMove = pv[0];
 
-        std::cout
-            << "info depth " << depth
-            << " score cp " << bestScore
+        // UCI printing
+        std::cout << "info depth " << depth
+            << " score cp " << score
+            << " time " << ms
             << " nodes " << nodes
             << " nps " << nps
-            << " time " << ms
-            << " pv " << pv
-            << "\n";
+            << " pv";
+
+        for (int i = 0; i < pv_len; i++)
+            std::cout << " " << move_to_string(pv[i]);
+
+        std::cout << "\n";
+
+        if (time_up())
+            break;
     }
 
     return bestMove;
