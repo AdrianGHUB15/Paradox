@@ -114,7 +114,7 @@ std::string board_to_fen(const Board& pos) {
 
     return fen;
 }
-static std::uint64_t perft(Board& pos, int depth) {
+std::uint64_t perft(Board& pos, int depth) {
     if (depth == 0)
         return 1;
 
