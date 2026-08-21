@@ -30,10 +30,9 @@ inline Bitboard isolate_lsb(Bitboard b) {
     return b & (~b + 1ULL);
 }
 
-inline int pop_lsb_index(Bitboard& b) {
-    Bitboard l = isolate_lsb(b);
-    int sq = lsb_index(l);
-    b ^= l;
+inline int pop_lsb_index(Bitboard &bb) {
+    int sq = lsb_index(bb);
+    bb &= bb - 1;
     return sq;
 }
 
@@ -44,6 +43,12 @@ inline int lsb(Bitboard b) { return lsb_index(b); }
 
 inline int lsb(uint64_t b) {
     return int(__builtin_ctzll(b));
+}
+
+inline int pop_lsb_index(Bitboard &bb) {
+    int sq = __builtin_ctzll(bb);
+    bb &= bb - 1;
+    return sq;
 }
 
 inline int pop_lsb(Bitboard& b) {

@@ -19,7 +19,8 @@ struct SearchLimits {
 
 class Board;
 
-Move search_bestmove(Board& pos, int maxDepth, int timeMs = 0);
+Move search_bestmove(Board& pos, int movetime);
+
 // search.h
 extern bool Option_ProfilePrint;
 extern int  Option_HashMB;
