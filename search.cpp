@@ -1,6 +1,7 @@
 #include <chrono>
 #include <iostream>
 #include <algorithm>
+#include <cstring>
 
 #include "board.h"
 #include "eval.h"
@@ -13,13 +14,15 @@ int TIME_LIMIT_MS = 0;
 static int history[64][64];
 static Move killer[128][2];
 
-int move_score(Move m) {
+int move_score(Move m, int ply) {
     int from = from_sq(m);
     int to = to_sq(m);
 
+    // Killer moves first
     if (m == killer[ply][0]) return 1000000;
     if (m == killer[ply][1]) return 999000;
 
+    // History heuristic
     return history[from][to];
 }
 
@@ -96,6 +99,7 @@ int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len, 
                 killer[ply][0] = m;
             }
             break;
+        }
     }
 
     return bestScore;
