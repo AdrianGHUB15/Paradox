@@ -11,10 +11,11 @@ int TIME_LIMIT_MS = 0;
 static int history[64][64];
 
 int move_score(Move m) {
-    int from = move_from(m);
-    int to = move_to(m);
+    int from = from_sq(m);
+    int to = to_sq(m);
     return history[from][to];
 }
+
 
 bool time_up() {
     auto now = std::chrono::steady_clock::now();
