@@ -103,12 +103,36 @@ Move search_bestmove(Board& pos, int movetime) {
     Move pv[128];
     int pv_len = 0;
 
+    int prevScore = 0;
+    const int ASP_WINDOW = 50; // in centipawns
+
     for (int depth = 1; depth <= 99; depth++) {
 
         nodes = 0;
         auto dstart = std::chrono::steady_clock::now();
 
-        int score = negamax(pos, depth, -100000000, 100000000, pv, pv_len);
+        int alpha, beta;
+
+        if (depth == 1) {
+            alpha = -100000000;
+            beta = 100000000;
+        }
+        else {
+            alpha = prevScore - ASP_WINDOW;
+            beta = prevScore + ASP_WINDOW;
+        }
+
+        int score = negamax(pos, depth, alpha, beta, pv, pv_len);
+
+        // If fail low/high, re-search with full window
+        if ((score <= alpha || score >= beta) && !time_up()) {
+            alpha = -100000000;
+            beta = 100000000;
+            nodes = 0;
+            score = negamax(pos, depth, alpha, beta, pv, pv_len);
+        }
+
+        prevScore = score;
 
         auto dend = std::chrono::steady_clock::now();
         int ms = (int)std::chrono::duration_cast<std::chrono::milliseconds>(dend - dstart).count();
