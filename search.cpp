@@ -1,5 +1,7 @@
 #include <chrono>
 #include <iostream>
+#include <algorithm>
+
 #include "board.h"
 #include "eval.h"
 #include "movegen.h"
