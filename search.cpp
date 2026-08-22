@@ -1,5 +1,6 @@
 #include <chrono>
 #include <iostream>
+#include <algorithm>
 #include "board.h"
 #include "eval.h"
 #include "movegen.h"
@@ -7,6 +8,13 @@
 uint64_t nodes = 0;
 std::chrono::steady_clock::time_point startTime;
 int TIME_LIMIT_MS = 0;
+static int history[64][64];
+
+int move_score(Move m) {
+    int from = move_from(m);
+    int to = move_to(m);
+    return history[from][to];
+}
 
 bool time_up() {
     auto now = std::chrono::steady_clock::now();
@@ -34,7 +42,11 @@ int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len) 
             return -30000;
         return 0;
     }
-
+    std::sort(list.moves, list.moves + list.size,
+        [&](Move a, Move b) {
+            return move_score(a) > move_score(b);
+        });
+    
     int bestScore = -100000000;
     Move bestMove = 0;
 
@@ -62,8 +74,15 @@ int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len) 
             pv_len = childPV_len + 1;
         }
 
-        if (score > alpha)
+        if (score > alpha) {
             alpha = score;
+
+            int from = move_from(m);
+            int to = move_to(m);
+
+            history[from][to] += depth * depth;
+        }
+
 
         if (alpha >= beta)
             break;
@@ -75,6 +94,8 @@ int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len) 
 Move search_bestmove(Board& pos, int movetime) {
     TIME_LIMIT_MS = movetime;
     startTime = std::chrono::steady_clock::now();
+
+    std::memset(history, 0, sizeof(history));
 
     Move bestMove = 0;
     Move pv[128];
