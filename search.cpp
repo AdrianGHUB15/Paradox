@@ -7,14 +7,20 @@
 uint64_t nodes = 0;
 std::chrono::steady_clock::time_point startTime;
 int TIME_LIMIT_MS = 0;
+static Move killer[128][2];
 
 bool time_up() {
     auto now = std::chrono::steady_clock::now();
     int ms = (int)std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
     return ms >= TIME_LIMIT_MS;
 }
+int move_score(Move m, int ply) {
+    if (m == killer[ply][0]) return 1000000;
+    if (m == killer[ply][1]) return 999000;
+    return 0;
+}
 
-int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len) {
+int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len, int ply) {
     nodes++;
 
     if (time_up())
@@ -34,6 +40,11 @@ int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len) 
             return -30000;
         return 0;
     }
+    // Killer move ordering
+    std::sort(list.moves, list.moves + list.size,
+        [&](Move a, Move b) {
+            return move_score(a, ply) > move_score(b, ply);
+        });
 
     int bestScore = -100000000;
     Move bestMove = 0;
@@ -46,7 +57,7 @@ int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len) 
         State st;
 
         pos.make_move(m, st);
-        int score = -negamax(pos, depth - 1, -beta, -alpha, childPV, childPV_len);
+        int score = -negamax(pos, depth - 1, -beta, -alpha, childPV, childPV_len, ply + 1);
         pos.unmake_move(st);
 
         if (time_up())
@@ -66,7 +77,12 @@ int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len) 
             alpha = score;
 
         if (alpha >= beta)
+            if (killer[ply][0] != m) {
+                killer[ply][1] = killer[ply][0];
+                killer[ply][0] = m;
+            }
             break;
+
     }
 
     return bestScore;
@@ -85,7 +101,7 @@ Move search_bestmove(Board& pos, int movetime) {
         nodes = 0;
         auto dstart = std::chrono::steady_clock::now();
 
-        int score = negamax(pos, depth, -100000000, 100000000, pv, pv_len);
+        int score = negamax(pos, depth, -100000000, 100000000, pv, pv_len, 0);
 
         auto dend = std::chrono::steady_clock::now();
         int ms = (int)std::chrono::duration_cast<std::chrono::milliseconds>(dend - dstart).count();
