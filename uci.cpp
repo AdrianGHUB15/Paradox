@@ -161,7 +161,7 @@ static void cmd_go(const std::string& line) {
         movetime = btime / 20 + binc / 2;
 
     if (movetime <= 0)
-        movetime = 50;
+        movetime = 1;
 
     Move best = search_bestmove(g_board, movetime);
     std::cout << "bestmove " << move_to_string(best) << "\n";
