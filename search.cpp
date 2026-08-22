@@ -78,8 +78,8 @@ int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len) 
         if (score > alpha) {
             alpha = score;
 
-            int from = move_from(m);
-            int to = move_to(m);
+            int from = from_sq(m);
+            int to = to_sq(m);
 
             history[from][to] += depth * depth;
         }
