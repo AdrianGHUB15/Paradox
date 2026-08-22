@@ -98,8 +98,8 @@ int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len, 
                 killer[ply][1] = killer[ply][0];
                 killer[ply][0] = m;
             }
-            break;
-        }
+        break;
+        
     }
 
     return bestScore;
