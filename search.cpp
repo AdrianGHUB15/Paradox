@@ -122,7 +122,10 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
     else if (limits.wtime > 0 || limits.btime > 0) {
         int time = (pos.stm == WHITE ? limits.wtime : limits.btime);
         int inc = (pos.stm == WHITE ? limits.winc : limits.binc);
-        TIME_LIMIT_MS = time / limits.movestogo + inc / 2;
+        if (limits.movestogo)
+             TIME_LIMIT_MS = time / limits.movestogo + inc / 2;
+        else if (!limits.movestogo)
+             TIME_LIMIT_MS = time / 20 + inc / 2;
         if (TIME_LIMIT_MS < 10) TIME_LIMIT_MS = 10;
     }
     else {
@@ -132,6 +135,13 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
 
     startTime = std::chrono::steady_clock::now();
     std::memset(history, 0, sizeof(history));
+
+    MoveList rootMoves;
+    generate_legal(pos, rootMoves);
+
+    if (rootMoves.size == 1) {
+        TIME_LIMIT_MS = std::min(TIME_LIMIT_MS, 500);
+    }
 
     Move bestMove = 0;
     Move pv[128];
