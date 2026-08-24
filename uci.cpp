@@ -138,6 +138,11 @@ static void cmd_go(const std::string& line) {
         else if (tok == "binc") iss >> limits.binc;
         else if (tok == "nodes") iss >> limits.nodes;
         else if (tok == "infinite") limits.infinite = true;
+        else if (tok == "movestogo") {
+            iss >> limits.movestogo;
+            limits.movestogoProvided = true;
+        }
+
     }
 
     // If no parameters → infinite search
