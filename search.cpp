@@ -1,16 +1,22 @@
-#include <chrono>
+﻿#include <chrono>
 #include <iostream>
 #include <algorithm>
 
 #include "board.h"
 #include "eval.h"
 #include "movegen.h"
+#include "search.h"
 
 uint64_t nodes = 0;
 std::chrono::steady_clock::time_point startTime;
 int TIME_LIMIT_MS = 0;
 
 static int history[64][64];
+
+bool stopRequested = false;
+bool infiniteSearch = false;
+int MAX_NODES = 0;
+int MAX_DEPTH = 0;
 
 int move_score(Move m) {
     int from = from_sq(m);
@@ -19,10 +25,20 @@ int move_score(Move m) {
 }
 
 bool time_up() {
+    if (stopRequested)
+        return true;
+
+    if (infiniteSearch)
+        return false; // only stop ends infinite search
+
+    if (TIME_LIMIT_MS <= 0)
+        return false;
+
     auto now = std::chrono::steady_clock::now();
     int ms = (int)std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
     return ms >= TIME_LIMIT_MS;
 }
+
 
 int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len) {
     nodes++;
@@ -92,18 +108,36 @@ int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len) 
     return bestScore;
 }
 
-Move search_bestmove(Board& pos, int movetime) {
-    TIME_LIMIT_MS = movetime;
+Move search_bestmove(Board& pos, const SearchLimits& limits) {
+    stopRequested = false;
+    infiniteSearch = limits.infinite;
+
+    // TIME LIMIT SETUP
+    if (limits.infinite) {
+        TIME_LIMIT_MS = 0; // only stop ends search
+    }
+    else if (limits.movetime > 0) {
+        TIME_LIMIT_MS = limits.movetime;
+    }
+    else if (limits.wtime > 0 || limits.btime > 0) {
+        int time = (pos.stm == WHITE ? limits.wtime : limits.btime);
+        int inc = (pos.stm == WHITE ? limits.winc : limits.binc);
+        TIME_LIMIT_MS = time / limits.movestogo + inc / 2;
+        if (TIME_LIMIT_MS < 10) TIME_LIMIT_MS = 10;
+    }
+    else {
+        TIME_LIMIT_MS = 0; // no limit → infinite unless stopRequested
+        infiniteSearch = true;
+    }
+
     startTime = std::chrono::steady_clock::now();
-
     std::memset(history, 0, sizeof(history));
-
 
     Move bestMove = 0;
     Move pv[128];
     int pv_len = 0;
 
-    for (int depth = 1; depth <= 99; depth++) {
+    for (int depth = 1; depth <= (limits.depth > 0 ? limits.depth : 99); depth++) {
 
         nodes = 0;
         auto dstart = std::chrono::steady_clock::now();
@@ -119,10 +153,9 @@ Move search_bestmove(Board& pos, int movetime) {
         if (pv_len > 0)
             bestMove = pv[0];
 
-        // UCI printing
         std::cout << "info depth " << depth
             << " score cp " << score
-            << " time " << ms
+            << " time " << (int)std::chrono::duration_cast<std::chrono::milliseconds>(dend - startTime).count()
             << " nodes " << nodes
             << " nps " << nps
             << " pv";
@@ -133,6 +166,9 @@ Move search_bestmove(Board& pos, int movetime) {
         std::cout << "\n";
 
         if (time_up())
+            break;
+
+        if (limits.nodes > 0 && nodes >= limits.nodes)
             break;
     }
 

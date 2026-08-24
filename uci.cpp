@@ -1,4 +1,4 @@
-#define _CRT_SECURE_NO_WARNINGS
+﻿#define _CRT_SECURE_NO_WARNINGS
 
 #include <cstdio>
 #include <cstring>
@@ -17,6 +17,10 @@
 // Global board
 // ------------------------------------------------------------
 static Board g_board;
+extern bool stopRequested;
+extern bool infiniteSearch;
+extern int MAX_NODES;
+extern int MAX_DEPTH;
 
 // ------------------------------------------------------------
 // Helpers
@@ -119,53 +123,31 @@ static void cmd_position(const std::string& line) {
 // GO command (simple depth-only search)
 // ------------------------------------------------------------
 static void cmd_go(const std::string& line) {
-    int depth = 0;
-    int wtime = -1, btime = -1;
-    int winc = 0, binc = 0;
-    bool infinite = false;
+    SearchLimits limits;
 
     std::istringstream iss(line);
     std::string tok;
     iss >> tok;
 
     while (iss >> tok) {
-        if (tok == "depth")        iss >> depth;
-        else if (tok == "wtime")   iss >> wtime;
-        else if (tok == "btime")   iss >> btime;
-        else if (tok == "winc")    iss >> winc;
-        else if (tok == "binc")    iss >> binc;
-        else if (tok == "infinite") infinite = true;
+        if (tok == "depth") iss >> limits.depth;
+        else if (tok == "movetime") iss >> limits.movetime;
+        else if (tok == "wtime") iss >> limits.wtime;
+        else if (tok == "btime") iss >> limits.btime;
+        else if (tok == "winc") iss >> limits.winc;
+        else if (tok == "binc") iss >> limits.binc;
+        else if (tok == "nodes") iss >> limits.nodes;
+        else if (tok == "infinite") limits.infinite = true;
     }
 
-    // depth search
-    if (depth > 0) {
-        Move best = search_bestmove(g_board, 99999999); // unlimited time
-        std::cout << "bestmove " << move_to_string(best) << "\n";
-        return;
-    }
+    // If no parameters → infinite search
+    if (!limits.depth && !limits.movetime && !limits.wtime && !limits.btime)
+        limits.infinite = true;
 
-    // infinite search
-    if (infinite) {
-        Move best = search_bestmove(g_board, 99999999);
-        std::cout << "bestmove " << move_to_string(best) << "\n";
-        return;
-    }
-
-    // time management
-    int movetime = 0;
-    Color stm = g_board.stm;
-
-    if (stm == WHITE && wtime >= 0)
-        movetime = wtime / 20 + winc / 2;
-    else if (stm == BLACK && btime >= 0)
-        movetime = btime / 20 + binc / 2;
-
-    if (movetime <= 0)
-        movetime = 50;
-
-    Move best = search_bestmove(g_board, movetime);
+    Move best = search_bestmove(g_board, limits);
     std::cout << "bestmove " << move_to_string(best) << "\n";
 }
+
 
 // ------------------------------------------------------------
 // UCI LOOP
@@ -195,6 +177,9 @@ void uci_loop() {
         }
         else if (line.rfind("go", 0) == 0) {
             cmd_go(line);
+        }
+        else if (line == "stop") {
+            stopRequested = true;
         }
         else if (line == "quit") {
             break;
