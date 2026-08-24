@@ -139,7 +139,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
     MoveList rootMoves;
     generate_legal(pos, rootMoves);
 
-    if (rootMoves.size == 1) {
+    if (rootMoves.size == 1 && !limits.movetime) {
         TIME_LIMIT_MS = std::min(TIME_LIMIT_MS, 500);
     }
 
