@@ -11,6 +11,7 @@ struct SearchLimits {
     size_t nodes = 0;
     bool infinite = false;
     bool bench_mode = false;
+    bool movestogoProvided = false;
 
     int wtime = 0, btime = 0;
     int winc = 0, binc = 0;
