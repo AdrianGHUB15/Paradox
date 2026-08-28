@@ -10,6 +10,7 @@ struct SearchLimits {
     int movetime = 0;
     size_t nodes = 0;
     bool infinite = false;
+    bool bench_mode = false;
 
     int wtime = 0, btime = 0;
     int winc = 0, binc = 0;

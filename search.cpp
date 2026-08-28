@@ -39,6 +39,16 @@ bool time_up() {
     return ms >= TIME_LIMIT_MS;
 }
 
+Move run_bench_startpos_depth6() {
+    Board b;
+    b.set_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+
+    SearchLimits limits;
+    limits.depth = 6;
+    limits.bench_mode = true;
+
+    return search_bestmove(b, limits);
+}
 
 int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len) {
     nodes++;
@@ -170,6 +180,15 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
 
         if (limits.nodes > 0 && nodes >= limits.nodes)
             break;
+    }
+    if (limits.bench_mode) {
+        auto end = std::chrono::steady_clock::now();
+        uint64_t ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - startTime).count();
+        if (ms == 0) ms = 1;
+
+        uint64_t nps = (nodes * 1000ULL) / ms;
+
+        std::cout << "info string bench summary: " << nodes << " nodes " << nps << " nps\n";
     }
 
     return bestMove;
