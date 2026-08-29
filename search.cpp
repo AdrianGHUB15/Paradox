@@ -201,8 +201,8 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
         lastBestMove = bestMove;
 
         // If stable for 3 depths, reduce remaining time
-        if (stableCount >= 3 && TIME_LIMIT_MS > 50) {
-            TIME_LIMIT_MS = TIME_LIMIT_MS * 9 / 10;   // reduce to 90%
+        if (stableCount >= 1 && TIME_LIMIT_MS > 50) {
+            TIME_LIMIT_MS = TIME_LIMIT_MS -  (stableCount * stableCount * (TIME_LIMIT_MS / 2));   // reduce to 90%
         }
 
         std::cout << "info depth " << depth
