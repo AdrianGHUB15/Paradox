@@ -4,7 +4,7 @@ _ROOT       := $(_THIS)
 NAME        := Paradox
 TARGET      := $(NAME)
 SUFFIX      :=
-EXE         := $(NAME)$(SUFFIX)
+EXE         := foo$(SUFFIX)
 
 WARNINGS    = -Wall -Wextra -Wno-unused-variable
 CXXFLAGS    := -O3 -funroll-loops -fomit-frame-pointer -flto -fno-exceptions -DIS_64BIT -DNDEBUG $(WARNINGS)
