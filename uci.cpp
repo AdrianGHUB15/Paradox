@@ -201,6 +201,7 @@ void uci_loop() {
             bss >> btok >> bdepth;
             run_bench(bdepth);
 
-        std::cout.flush();
+            std::cout.flush();
+        }
     }
 }
