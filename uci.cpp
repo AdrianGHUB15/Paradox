@@ -174,7 +174,7 @@ void uci_loop() {
             std::cout << "id name Paradox 3\n";
             std::cout << "id author Adrian Ladoni\n";
             std::cout << "option name Threads type spin default 1 min 1 max 1\n";
-            std::cout << "option name Threads type spin default 16 min 1 max 32\n";
+            std::cout << "option name Hash type spin default 16 min 1 max 4096\n";
             std::cout << "uciok\n";
         }
         else if (line == "isready") {
