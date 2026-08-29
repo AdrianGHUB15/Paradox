@@ -22,7 +22,6 @@ extern bool infiniteSearch;
 extern int MAX_NODES;
 extern int MAX_DEPTH;
 
-extern Move run_bench_startpos_depth6();
 // ------------------------------------------------------------
 // Helpers
 // ------------------------------------------------------------
@@ -165,7 +164,7 @@ void uci_loop() {
 
     while (true) {
         if (!std::getline(std::cin, line))
-            continue;
+            break; // EOF/error: exit rather than spin forever
 
         if (!line.empty() && line.back() == '\r')
             line.pop_back();
@@ -173,8 +172,8 @@ void uci_loop() {
         if (line == "uci") {
             std::cout << "id name Paradox 3\n";
             std::cout << "id author Adrian Ladoni\n";
-            std::cout << "option name Threads type spin default 1 min 1 max 1\n";
             std::cout << "option name Hash type spin default 16 min 1 max 4096\n";
+            std::cout << "option name Threads type spin default 1 min 1 max 1\n";
             std::cout << "uciok\n";
         }
         else if (line == "isready") {
@@ -195,12 +194,14 @@ void uci_loop() {
         else if (line == "d") {
             g_board.print();
         }
-        else if (line == "bench") {
-            std::cout << "info string running bench depth 6\n";
-            Move best = run_bench_startpos_depth6();
-            std::cout << "bestmove " << move_to_string(best) << "\n";
-        }
+        else if (line.rfind("bench", 0) == 0) {
+            std::istringstream bss(line);
+            std::string btok;
+            int bdepth = 0;
+            bss >> btok >> bdepth;
+            run_bench(bdepth);
 
-        std::cout.flush();
+            std::cout.flush();
+        }
     }
 }
