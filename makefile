@@ -2,13 +2,16 @@ _THIS       := $(realpath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 _ROOT       := $(_THIS)
 
 NAME        := Paradox
-TARGET      := $(NAME)
+# Deferred, so it picks up SUFFIX from the OS detection below. OpenBench
+# builds with `make EXE=Engine-ABCDEFGH`, which overrides this either way.
+EXE          = $(NAME)$(SUFFIX)
 SUFFIX      :=
-EXE         := $(NAME)$(SUFFIX)
 
-WARNINGS    = -Wall -Wextra -Wno-unused-variable
-CXXFLAGS    := -O3 -funroll-loops -fomit-frame-pointer -flto -fno-exceptions -DIS_64BIT -DNDEBUG $(WARNINGS)
-LDFLAGS     := -fuse-ld=lld
+WARNINGS    := -Wall -Wextra -Wno-unused-variable
+CXXFLAGS    := -std=c++17 -O3 -funroll-loops -fomit-frame-pointer -flto \
+               -fno-exceptions -DIS_64BIT -DNDEBUG $(WARNINGS)
+LDFLAGS     :=
+LIBS        :=
 NATIVE      := -march=native
 
 # -----------------------------------------
@@ -31,42 +34,28 @@ ifeq ($(OS), Windows_NT)
     CXXFLAGS += -static
     LDFLAGS  += -Wl,--stack,16777216
     MKDIR    := mkdir
-    FLAGS    := -lpthread
+    LIBS    := -lpthread
 else
     MKDIR    := mkdir -p
-    FLAGS    := -pthread -lm
+    LIBS    := -pthread -lm
     uname_S  := $(shell uname -s)
 endif
 
 ifeq ($(uname_S), Darwin)
-    NATIVE = -mcpu=apple-a14
-    FLAGS  =
+    NATIVE := -mcpu=apple-a14
+    LIBS   :=
 endif
 
 # -----------------------------------------
-#   Architecture auto-detect
+#   Linker selection
+#
+#   lld is clang-only here: GCC's -flto objects are LLVM-unreadable, so
+#   ld.lld fails the link with "undefined symbol: main". Probed rather than
+#   assumed, since plenty of machines have clang but no lld installed.
 # -----------------------------------------
-AVX2FLAGS   = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi
-BMI2FLAGS   = -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi -mbmi2
-AVX512FLAGS = -DUSE_AVX512 -DUSE_SIMD -mavx512f -mavx512bw
-NEONFLAGS   = -DUSE_NEON -flax-vector-conversions
-
-ARCH_DETECTED =
-PROPERTIES = $(shell echo | $(CXX) $(NATIVE) -E -dM -)
-
-ifneq ($(findstring __AVX512F__, $(PROPERTIES)),)
-    ifneq ($(findstring __AVX512BW__, $(PROPERTIES)),)
-        ARCH_DETECTED = AVX512
-    endif
-endif
-ifeq ($(ARCH_DETECTED),)
-    ifneq ($(findstring __BMI2__, $(PROPERTIES)),)
-        ARCH_DETECTED = BMI2
-    endif
-endif
-ifeq ($(ARCH_DETECTED),)
-    ifneq ($(findstring __AVX2__, $(PROPERTIES)),)
-        ARCH_DETECTED = AVX2
+ifneq ($(findstring clang,$(CXX)),)
+    ifneq ($(findstring LLD,$(shell ld.lld --version 2>&1)),)
+        LDFLAGS += -fuse-ld=lld
     endif
 endif
 ifeq ($(ARCH_DETECTED),)
@@ -75,40 +64,60 @@ ifeq ($(ARCH_DETECTED),)
     endif
 endif
 
-ifeq ($(ARCH_DETECTED), AVX512)
-    CXXFLAGS += $(AVX512FLAGS)
-endif
-ifeq ($(ARCH_DETECTED), BMI2)
-    CXXFLAGS += $(BMI2FLAGS)
-endif
-ifeq ($(ARCH_DETECTED), AVX2)
-    CXXFLAGS += $(AVX2FLAGS)
-endif
-ifeq ($(ARCH_DETECTED), NEON)
-    CXXFLAGS += $(NEONFLAGS)
-endif
-
 # -----------------------------------------
-#   Build modes
+#   Debug modes
 # -----------------------------------------
 ifeq ($(build), debug)
-    CXXFLAGS = -O0 -g3 -std=gnu++2a -fno-omit-frame-pointer
+	CXXFLAGS := -std=gnu++2a -O0 -g3 -fno-omit-frame-pointer -DIS_64BIT $(WARNINGS)
 endif
+# -----------------------------------------
+#   Architecture selection
+#
+#   An explicit build= picks its own target, so the host probe must not run
+#   as well -- otherwise a native AVX512 machine building x86-64-avx2 gets
+#   both flag sets and both -DUSE_* defines at once.
+# -----------------------------------------
+AVX2FLAGS   := -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi
+BMI2FLAGS   := -DUSE_AVX2 -DUSE_SIMD -mavx2 -mbmi -mbmi2
+AVX512FLAGS := -DUSE_AVX512 -DUSE_SIMD -mavx512f -mavx512bw
+NEONFLAGS   := -DUSE_NEON -flax-vector-conversions
 
+ARCH_FLAGS  :=
 ifeq ($(build), x86-64-avx2)
-    NATIVE = -march=bdver4 -mno-tbm -mno-sse4a -mno-bmi2
-    CXXFLAGS += $(AVX2FLAGS)
+    NATIVE     := -march=bdver4 -mno-tbm -mno-sse4a -mno-bmi2
+    ARCH_FLAGS := $(AVX2FLAGS)
+else ifeq ($(build), x86-64-bmi2)
+    NATIVE     := -march=haswell
+    ARCH_FLAGS := $(BMI2FLAGS)
+else ifeq ($(build), x86-64-avx512)
+    NATIVE     := -march=x86-64-v4 -mtune=znver4
+    ARCH_FLAGS := $(AVX512FLAGS)
+else
+    PROPERTIES := $(shell echo | $(CXX) $(NATIVE) -E -dM -)
+
+  ifneq ($(findstring __AVX512F__, $(PROPERTIES)),)
+        ifneq ($(findstring __AVX512BW__, $(PROPERTIES)),)
+            ARCH_FLAGS := $(AVX512FLAGS)
+        endif
+    endif
+    ifeq ($(ARCH_FLAGS),)
+        ifneq ($(findstring __BMI2__, $(PROPERTIES)),)
+            ARCH_FLAGS := $(BMI2FLAGS)
+        endif
+    endif
+    ifeq ($(ARCH_FLAGS),)
+        ifneq ($(findstring __AVX2__, $(PROPERTIES)),)
+            ARCH_FLAGS := $(AVX2FLAGS)
+        endif
+    endif
+    ifeq ($(ARCH_FLAGS),)
+        ifneq ($(findstring __aarch64__, $(PROPERTIES)),)
+            ARCH_FLAGS := $(NEONFLAGS)
+        endif
+    endif
 endif
 
-ifeq ($(build), x86-64-bmi2)
-    NATIVE = -march=haswell
-    CXXFLAGS += $(BMI2FLAGS)
-endif
-
-ifeq ($(build), x86-64-avx512)
-    NATIVE = -march=x86-64-v4 -mtune=znver4
-    CXXFLAGS += $(AVX512FLAGS)
-endif
+CXXFLAGS += $(ARCH_FLAGS)
 
 # -----------------------------------------
 #   Sources
@@ -116,22 +125,24 @@ endif
 OBJDIR  := .tmp
 SOURCES := $(wildcard *.cpp)
 OBJECTS := $(patsubst %.cpp,$(OBJDIR)/%.o,$(SOURCES))
+DEPENDS := $(OBJECTS:.o=.d)
 
 # -----------------------------------------
 #   Rules
 # -----------------------------------------
 default: build
 
-build: $(TARGET)
+build: $(EXE)
 
 clean:
-	@rm -rf $(OBJDIR) *.o *.d $(TARGET) *.exe
+	@rm -rf $(OBJDIR) *.o *.d $(EXE) \
+		$(NAME)-avx2$(SUFFIX) $(NAME)-bmi2$(SUFFIX) $(NAME)-avx512$(SUFFIX)
 
-$(TARGET): $(OBJECTS)
-	$(CXX) $(CXXFLAGS) $(NATIVE) -o $(EXE) $(OBJECTS) $(FLAGS) $(LDFLAGS)
+$(EXE): $(OBJECTS)
+	$(CXX) $(CXXFLAGS) $(NATIVE) -o $@ $(OBJECTS) $(LIBS) $(LDFLAGS)
 
 $(OBJDIR)/%.o: %.cpp | $(OBJDIR)
-	$(CXX) $(CXXFLAGS) $(NATIVE) -MMD -MP -c $< -o $@ $(FLAGS)
+	$(CXX) $(CXXFLAGS) $(NATIVE) -MMD -MP -c $< -o $@
 
 $(OBJDIR):
 	$(MKDIR) "$(OBJDIR)"
@@ -156,4 +167,6 @@ release-avx512:
 
 release: release-avx2 release-bmi2 release-avx512
 
-.PHONY: clean build release release-avx2 release-bmi2 release-avx512
+-include $(DEPENDS)
+
+.PHONY: default clean build release release-avx2 release-bmi2 release-avx512

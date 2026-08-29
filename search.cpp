@@ -39,12 +39,14 @@ bool time_up() {
     return ms >= TIME_LIMIT_MS;
 }
 
-Move run_bench_startpos_depth6() {
+Move run_bench(int depth) {
     Board b;
     b.set_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
     SearchLimits limits;
-    limits.depth = 6;
+    // Depth 8 runs ~2.4s; depth 6 was only ~67ms, too short for the timer
+    // resolution to give OpenBench a stable nps reading.
+    limits.depth = (depth > 0 ? depth : 8);
     limits.bench_mode = true;
 
     return search_bestmove(b, limits);
@@ -70,7 +72,10 @@ int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len) 
             return -30000;
         return 0;
     }
-    std::sort(list.moves, list.moves + list.size,
+    // Stable, so that tied moves keep generation order rather than whatever
+ // the standard library's introsort happens to produce. Keeps node counts
+ // identical across compilers/platforms, as OpenBench requires.
+    std::stable_sort(list.moves, list.moves + list.size,
         [&](Move a, Move b) {
             return move_score(a) > move_score(b);
         });
@@ -165,15 +170,16 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
     Move pv[128];
     int pv_len = 0;
 
-    for (int depth = 1; depth <= (limits.depth > 0 ? limits.depth : 99); depth++) {
-
+    // Cumulative across the whole iterative deepening run, so that the
+  // reported nodes/nps and the elapsed time refer to the same interval.
         nodes = 0;
-        auto dstart = std::chrono::steady_clock::now();
+
+        for (int depth = 1; depth <= (limits.depth > 0 ? limits.depth : 99); depth++) {
 
         int score = negamax(pos, depth, -100000000, 100000000, pv, pv_len);
 
         auto dend = std::chrono::steady_clock::now();
-        int ms = (int)std::chrono::duration_cast<std::chrono::milliseconds>(dend - dstart).count();
+        int ms = (int)std::chrono::duration_cast<std::chrono::milliseconds>(dend - startTime).count();
         if (ms == 0) ms = 1;
 
         uint64_t nps = nodes * 1000 / ms;
@@ -183,7 +189,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
 
         std::cout << "info depth " << depth
             << " score cp " << score
-            << " time " << (int)std::chrono::duration_cast<std::chrono::milliseconds>(dend - startTime).count()
+            << " time " << ms
             << " nodes " << nodes
             << " nps " << nps
             << " pv";
@@ -207,6 +213,10 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
         uint64_t nps = (nodes * 1000ULL) / ms;
 
         std::cout << "info string bench summary: " << nodes << " nodes " << nps << " nps\n";
+        // Trailing "<n> nodes <n> nps" is what OpenBench scrapes.
+        std::cout << "bench: " << ms << " ms "
+            << nodes << " nodes "
+            << nps << " nps" << std::endl;
     }
 
     return bestMove;
