@@ -18,6 +18,9 @@ bool infiniteSearch = false;
 int MAX_NODES = 0;
 int MAX_DEPTH = 0;
 
+Move lastBestMove = 0;
+int stableCount = 0;
+
 int move_score(Move m) {
     int from = from_sq(m);
     int to = to_sq(m);
@@ -186,6 +189,21 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
 
         if (pv_len > 0)
             bestMove = pv[0];
+
+        // Stability check: if best move stays the same, reduce time
+        if (bestMove == lastBestMove) {
+            stableCount++;
+        }
+        else {
+            stableCount = 0;
+        }
+
+        lastBestMove = bestMove;
+
+        // If stable for 3 depths, reduce remaining time
+        if (stableCount >= 3 && TIME_LIMIT_MS > 50) {
+            TIME_LIMIT_MS = TIME_LIMIT_MS * 7 / 10;   // reduce to 70%
+        }
 
         std::cout << "info depth " << depth
             << " score cp " << score
