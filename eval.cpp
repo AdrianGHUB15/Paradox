@@ -183,9 +183,6 @@ EvalParams evalParams = {
     {0,20,40,60,80,120,160,0},
 
     // King safety
-    10,
-
-    // Tempo
     10
 };
 
@@ -376,9 +373,6 @@ int evaluate(const Board& pos) {
             mg -= sign * missing * evalParams.pawnShieldPenalty;
         }
     }
-
-    // Tempo
-    mg += (pos.stm == WHITE ? evalParams.tempoBonus : -evalParams.tempoBonus);
 
     // ---------------- Tapered eval ----------------
     int phase = game_phase(pos);
