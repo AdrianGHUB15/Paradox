@@ -254,21 +254,6 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
                 return finalPV[0];
             }
 
-        if (pv_len > 0)
-            bestMove = pv[0];
-
-        std::cout << "info depth " << depth
-            << " score cp " << score
-            << " time " << ms
-            << " nodes " << nodes
-            << " nps " << nps
-            << " pv";
-
-        for (int i = 0; i < pv_len; i++)
-            std::cout << " " << move_to_string(pv[i]);
-
-        std::cout << "\n";
-
         if (time_up())
             break;
 
