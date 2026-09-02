@@ -205,6 +205,9 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
     Move pv[128];
     int pv_len = 0;
 
+    Move lastBestCapture = 0;
+    int stableCaptureCount = 0;
+
     // Cumulative across the whole iterative deepening run, so that the
   // reported nodes/nps and the elapsed time refer to the same interval.
         nodes = 0;
@@ -225,6 +228,28 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
             for (int i = 0; i < pv_len; i++)
                 currentPV[i] = pv[i];
 
+            // --- Stable capture detection ---
+            Move bm = (pv_len > 0 ? pv[0] : 0);
+
+            if (bm && is_capture(bm)) {
+                if (bm == lastBestCapture)
+                    stableCaptureCount++;
+                else {
+                    lastBestCapture = bm;
+                    stableCaptureCount = 1;
+                }
+            }
+            else {
+                // Not a capture → reset
+                lastBestCapture = 0;
+                stableCaptureCount = 0;
+            }
+            // Reduce time if stable capture for 3 consecutive depths
+            if (stableCaptureCount >= 3) {
+                TIME_LIMIT_MS = TIME_LIMIT_MS * 40 / 100;   // use 40% of normal time
+                if (TIME_LIMIT_MS < 10)
+                    TIME_LIMIT_MS = 10;
+            }
             if (!interrupted) {
                 finalScore = score;
                 finalPV_len = pv_len;
