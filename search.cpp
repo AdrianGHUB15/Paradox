@@ -15,8 +15,18 @@ static int history[64][64];
 
 bool stopRequested = false;
 bool infiniteSearch = false;
+bool interrupted = false;
+
 int MAX_NODES = 0;
 int MAX_DEPTH = 0;
+
+Move finalPV[128];
+int finalPV_len = 0;
+int finalScore = 0;
+
+Move currentPV[128];
+int currentPV_len = 0;
+int currentScore = 0;
 
 int move_score(Move m) {
     int from = from_sq(m);
@@ -38,6 +48,21 @@ bool time_up() {
     int ms = (int)std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
     return ms >= TIME_LIMIT_MS;
 }
+void print_info(int depth, int score, int ms, uint64_t nodes, uint64_t nps,
+    Move pv[], int pv_len)
+{
+    std::cout << "info depth " << depth
+        << " score cp " << score
+        << " time " << ms
+        << " nodes " << nodes
+        << " nps " << nps
+        << " pv";
+
+    for (int i = 0; i < pv_len; i++)
+        std::cout << " " << move_to_string(pv[i]);
+
+    std::cout << "\n";
+}
 
 Move run_bench(int depth) {
     Board b;
@@ -55,8 +80,14 @@ Move run_bench(int depth) {
 int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len) {
     nodes++;
 
-    if (time_up())
-        return 0;
+    int bestScore = -100000000;
+    Move bestMove = 0;
+
+    if (time_up()) {
+        interrupted = true;
+        return bestScore;
+    }
+
 
     if (depth == 0) {
         pv_len = 0;
@@ -80,9 +111,6 @@ int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len) 
             return move_score(a) > move_score(b);
         });
 
-    int bestScore = -100000000;
-    Move bestMove = 0;
-
     Move childPV[128];
     int childPV_len = 0;
 
@@ -94,8 +122,10 @@ int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len) 
         int score = -negamax(pos, depth - 1, -beta, -alpha, childPV, childPV_len);
         pos.unmake_move(st);
 
-        if (time_up())
+        if (time_up()) {
+            interrupted = true;
             break;
+        }
 
         if (score > bestScore) {
             bestScore = score;
@@ -126,6 +156,11 @@ int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len) 
 Move search_bestmove(Board& pos, const SearchLimits& limits) {
     stopRequested = false;
     infiniteSearch = limits.infinite;
+
+    bool timeManaged =
+        limits.movetime > 0 ||
+        limits.wtime > 0 || limits.btime > 0 ||
+        limits.winc > 0 || limits.binc > 0;
 
     int time = (pos.stm == WHITE ? limits.wtime : limits.btime);
     int inc = (pos.stm == WHITE ? limits.winc : limits.binc);
@@ -175,29 +210,50 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
         nodes = 0;
 
         for (int depth = 1; depth <= (limits.depth > 0 ? limits.depth : 99); depth++) {
+            interrupted = false;
+            int score = negamax(pos, depth, -100000000, 100000000, pv, pv_len);
 
-        int score = negamax(pos, depth, -100000000, 100000000, pv, pv_len);
+            // compute ms and nps
+            auto dend = std::chrono::steady_clock::now();
+            int ms = (int)std::chrono::duration_cast<std::chrono::milliseconds>(dend - startTime).count();
+            if (ms == 0) ms = 1;
+            uint64_t nps = nodes * 1000 / ms;
 
-        auto dend = std::chrono::steady_clock::now();
-        int ms = (int)std::chrono::duration_cast<std::chrono::milliseconds>(dend - startTime).count();
-        if (ms == 0) ms = 1;
+            // Save current depth PV (even if interrupted)
+            currentScore = score;
+            currentPV_len = pv_len;
+            for (int i = 0; i < pv_len; i++)
+                currentPV[i] = pv[i];
 
-        uint64_t nps = nodes * 1000 / ms;
+            if (!interrupted) {
+                finalScore = score;
+                finalPV_len = pv_len;
+                for (int i = 0; i < pv_len; i++)
+                    finalPV[i] = pv[i];
 
-        if (pv_len > 0)
-            bestMove = pv[0];
+                print_info(depth, score, ms, nodes, nps, pv, pv_len);
+                continue;
+            }
 
-        std::cout << "info depth " << depth
-            << " score cp " << score
-            << " time " << ms
-            << " nodes " << nodes
-            << " nps " << nps
-            << " pv";
+            if (interrupted && timeManaged) {
 
-        for (int i = 0; i < pv_len; i++)
-            std::cout << " " << move_to_string(pv[i]);
+                // 1. Print interruption message
+                std::cout << "info string search finished before depth "
+                    << depth << " was completed, falling back to depth "
+                    << (depth - 1) << "\n";
 
-        std::cout << "\n";
+                // 2. Print depth D only if it has a PV
+                if (currentPV_len > 0)
+                    print_info(depth, currentScore, ms, nodes, nps,
+                        currentPV, currentPV_len);
+
+                // 3. Print depth D-1 full info
+                print_info(depth - 1, finalScore, ms, nodes, nps,
+                    finalPV, finalPV_len);
+
+                // 4. Return best move from last completed depth
+                return finalPV[0];
+            }
 
         if (time_up())
             break;
@@ -219,5 +275,10 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
             << nps << " nps" << std::endl;
     }
 
-    return bestMove;
+    // After iterative deepening loop ends
+    if (finalPV_len > 0)
+        return finalPV[0];        // last completed depth
+    if (currentPV_len > 0)
+        return currentPV[0];      // partial PV from interrupted depth
+    return bestMove;              // fallback (should never be 0 now)
 }
