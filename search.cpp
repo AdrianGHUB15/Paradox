@@ -224,6 +224,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
             currentPV_len = pv_len;
             for (int i = 0; i < pv_len; i++)
                 currentPV[i] = pv[i];
+
             if (!interrupted) {
                 finalScore = score;
                 finalPV_len = pv_len;
@@ -241,14 +242,14 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
                     << depth << " was completed, falling back to depth "
                     << (depth - 1) << "\n";
 
-                // 2. Print depth D-1 full info
-                print_info(depth - 1, finalScore, ms, nodes, nps,
-                    finalPV, finalPV_len);
-
-                // 3. Print depth D only if it has a PV
+                // 2. Print depth D only if it has a PV
                 if (currentPV_len > 0)
                     print_info(depth, currentScore, ms, nodes, nps,
                         currentPV, currentPV_len);
+
+                // 3. Print depth D-1 full info
+                print_info(depth - 1, finalScore, ms, nodes, nps,
+                    finalPV, finalPV_len);
 
                 // 4. Return best move from last completed depth
                 return finalPV[0];
