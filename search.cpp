@@ -245,7 +245,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
                 stableCaptureCount = 0;
             }
             // Reduce time if stable capture for 3 consecutive depths
-            if (stableCaptureCount >= 3) {
+            if (stableCaptureCount == 3) {
                 TIME_LIMIT_MS = TIME_LIMIT_MS * 40 / 100;   // use 40% of normal time
                 if (TIME_LIMIT_MS < 10)
                     TIME_LIMIT_MS = 10;
