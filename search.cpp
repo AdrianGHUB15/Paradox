@@ -83,6 +83,11 @@ int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len) 
     int bestScore = -100000000;
     Move bestMove = 0;
 
+
+    bool PvNode = beta - alpha > 1;
+    bool is_in_check = in_check(pos, pos.stm);
+    int static_eval = evaluate(pos);
+
     if (time_up()) {
         interrupted = true;
         return bestScore;
@@ -96,6 +101,18 @@ int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len) 
 
     MoveList list;
     generate_legal(pos, list);
+
+    // Reverse Futility Pruning
+    if (!PvNode && !is_in_check && depth <= 3) {
+
+        int margin =
+            (depth == 1 ? 120 :
+                depth == 2 ? 200 :
+                300);
+
+        if (static_eval - margin >= beta)
+            return static_eval;
+    }
 
     if (list.size == 0) {
         pv_len = 0;
