@@ -105,7 +105,7 @@ int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len) 
     }
     // Stable, so that tied moves keep generation order rather than whatever
  // the standard library's introsort happens to produce. Keeps node counts
- // identical across compilers/platforms, as OpenBench requires.
+ // identical across compilers/platforms, as OpenBench requires. blah
     std::stable_sort(list.moves, list.moves + list.size,
         [&](Move a, Move b) {
             return move_score(a) > move_score(b);
