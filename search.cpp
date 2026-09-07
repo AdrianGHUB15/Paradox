@@ -131,10 +131,15 @@ int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len) 
             bestScore = score;
             bestMove = m;
 
+            int from = from_sq(m);
+            int to = to_sq(m);
+
             pv[0] = m;
             for (int j = 0; j < childPV_len; j++)
                 pv[j + 1] = childPV[j];
             pv_len = childPV_len + 1;
+
+            history[from][to] += depth * depth;
         }
 
         if (score > alpha) {
