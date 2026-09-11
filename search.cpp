@@ -28,7 +28,14 @@ Move currentPV[128];
 int currentPV_len = 0;
 int currentScore = 0;
 
-extern bool gives_check(Board& pos, Move m);
+bool gives_check(Board& pos, Move m) {
+    State st;
+    pos.make_move(m, st);
+    bool check = in_check(pos, pos.stm);
+    pos.unmake_move(st);
+    return check;
+}
+
 
 int move_score(Move m) {
     int from = from_sq(m);
@@ -120,17 +127,18 @@ int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len) 
         Move m = list.moves[i];
         State st;
         // --- Late Move Pruning (LMP) ---
-        if (!in_check && depth <= 3) {
+        if (!in_check(pos, pos.stm) && depth <= 5)
+        {
 
-            // Only prune quiet moves
             bool isQuiet =
-                !is_capture(m) && !gives_check(pos,m);
+                !is_capture(m) &&
+                !gives_check(pos, m);
 
-            // Prune late quiet moves
-            if (isQuiet && i >= 4) {
+            if (isQuiet && i >= 6)
                 continue;
-            }
         }
+
+
         pos.make_move(m, st);
         int score = -negamax(pos, depth - 1, -beta, -alpha, childPV, childPV_len);
         pos.unmake_move(st);
