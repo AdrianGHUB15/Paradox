@@ -93,6 +93,18 @@ int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len) 
         pv_len = 0;
         return evaluate(pos);
     }
+    // --- Futility pruning at depth 1 ---
+    if (depth == 1) {
+        int standPat = evaluate(pos);
+
+        // If even the static eval cannot raise alpha, prune
+        const int FUTILITY_MARGIN = 150; // safe margin
+
+        if (standPat + FUTILITY_MARGIN <= alpha && !in_check(pos, pos.stm)) {
+            pv_len = 0;
+            return standPat;
+        }
+    }
 
     MoveList list;
     generate_legal(pos, list);
