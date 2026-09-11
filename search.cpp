@@ -69,9 +69,8 @@ Move run_bench(int depth) {
     b.set_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
     SearchLimits limits;
-    // Depth 8 runs ~2.4s; depth 6 was only ~67ms, too short for the timer
-    // resolution to give OpenBench a stable nps reading.
-    limits.depth = (depth > 0 ? depth : 8);
+
+    limits.depth = (depth > 0 ? depth : 9);
     limits.bench_mode = true;
 
     return search_bestmove(b, limits);
@@ -79,7 +78,7 @@ Move run_bench(int depth) {
 
 int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len) {
     nodes++;
-
+    int eval = evaluate(pos);
     int bestScore = -100000000;
     Move bestMove = 0;
 
@@ -94,12 +93,12 @@ int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len) 
         return evaluate(pos);
     }
     // --- Null Move Pruning ---
-    if (depth >= 2 && !in_check(pos, pos.stm)) {
+    if (depth >= 3 && eval + 50 > beta && !in_check(pos, pos.stm)) {
 
         State st;
         pos.make_null_move(st);
 
-        int R = 2 * depth; // reduction
+        int R = 2; // reduction
         int score = -negamax(pos, depth - R, -beta, -beta + 1, pv, pv_len);
 
         pos.unmake_null_move(st);
