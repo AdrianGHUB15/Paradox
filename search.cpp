@@ -93,6 +93,14 @@ int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len) 
         pv_len = 0;
         return evaluate(pos);
     }
+    // --- Fail-low / Fail-high pruning (razoring lite) ---
+    int eval = evaluate(pos);
+
+    // Fail-low: position is so bad it cannot raise alpha
+    if (eval + 200 <= alpha) {
+        pv_len = 0;
+        return eval;
+    }
 
     MoveList list;
     generate_legal(pos, list);
