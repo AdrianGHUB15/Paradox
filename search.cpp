@@ -79,6 +79,7 @@ Move run_bench(int depth) {
 
 int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len) {
     nodes++;
+    int standPat = evaluate(pos);
 
     int bestScore = -100000000;
     Move bestMove = 0;
@@ -117,6 +118,17 @@ int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len) 
     for (int i = 0; i < list.size; i++) {
         Move m = list.moves[i];
         State st;
+        // --- Reverse Futility Pruning (RFP) ---
+        if (depth <= 4) {
+
+            bool isQuiet = !is_capture(m);
+
+            const int RFP_MARGIN = 150;
+
+            if (isQuiet && standPat + RFP_MARGIN <= alpha) {
+                continue;
+            }
+        }
 
         pos.make_move(m, st);
         int score = -negamax(pos, depth - 1, -beta, -alpha, childPV, childPV_len);
