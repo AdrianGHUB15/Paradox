@@ -93,6 +93,23 @@ int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len) 
         pv_len = 0;
         return evaluate(pos);
     }
+    // --- Null Move Pruning ---
+    if (depth >= 2 && !in_check(pos, pos.stm)) {
+
+        State st;
+        pos.make_null_move(st);
+
+        int R = 2 * depth; // reduction
+        int score = -negamax(pos, depth - R, -beta, -beta + 1, pv, pv_len);
+
+        pos.unmake_null_move(st);
+
+        if (score >= beta) {
+            // Fail-high → prune
+            pv_len = 0;
+            return score;
+        }
+    }
 
     MoveList list;
     generate_legal(pos, list);
