@@ -280,7 +280,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
                     lastDepthMs = elapsed;
                 }
 
-                int score = negamax(pos, depth, -100000000, 100000000, pv, pv_len);
+                int score = negamax(pos, depth, 0,  -100000000, 100000000, pv, pv_len);
 
 
             // compute ms and nps
