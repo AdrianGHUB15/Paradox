@@ -28,6 +28,8 @@ Move currentPV[128];
 int currentPV_len = 0;
 int currentScore = 0;
 
+constexpr int MATE = 32000;
+
 int move_score(Move m) {
     int from = from_sq(m);
     int to = to_sq(m);
@@ -51,18 +53,35 @@ bool time_up() {
 void print_info(int depth, int score, int ms, uint64_t nodes, uint64_t nps,
     Move pv[], int pv_len)
 {
-    std::cout << "info depth " << depth
-        << " score cp " << score
-        << " time " << ms
-        << " nodes " << nodes
-        << " nps " << nps
-        << " pv";
+    auto is_mate_score = [&](int s) {
+        return std::abs(s) >= MATE - 1000;   // margin for mate propagation^M
+        };
 
-    for (int i = 0; i < pv_len; i++)
-        std::cout << " " << move_to_string(pv[i]);
+    auto score_to_mate = [&](int s) {
+        int plies = (s > 0 ? MATE - s : MATE + s);
+        return (plies + 1) / 2;              // convert plies → moves^M
+        };
 
-    std::cout << "\n";
-}
+        std::cout << "info depth " << depth;
+
+        if (is_mate_score(score)) {
+            int mate = score_to_mate(score);
+            std::cout << " score mate " << mate;
+        }
+        else {
+            std::cout << " score cp " << score;
+        }
+        std::cout << " time " << ms
+            << " nodes " << nodes
+            << " nps " << nps
+            << " pv";
+
+        for (int i = 0; i < pv_len; i++)
+            std::cout << " " << move_to_string(pv[i]);
+
+        std::cout << "\n";
+ 
+};
 
 Move run_bench(int depth) {
     Board b;
@@ -77,8 +96,9 @@ Move run_bench(int depth) {
     return search_bestmove(b, limits);
 }
 
-int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len) {
+int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int& pv_len) {
     nodes++;
+    int standPat = evaluate(pos);
 
     int bestScore = -100000000;
     Move bestMove = 0;
@@ -100,7 +120,7 @@ int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len) 
     if (list.size == 0) {
         pv_len = 0;
         if (in_check(pos, pos.stm))
-            return -30000;
+            return -MATE + ply;
         return 0;
     }
     // Stable, so that tied moves keep generation order rather than whatever
@@ -117,9 +137,20 @@ int negamax(Board& pos, int depth, int alpha, int beta, Move pv[], int& pv_len) 
     for (int i = 0; i < list.size; i++) {
         Move m = list.moves[i];
         State st;
+        // --- Reverse Futility Pruning (RFP) ---
+        if (depth <= 4) {
+
+            bool isQuiet = !is_capture(m);
+
+            const int RFP_MARGIN = 150;
+
+            if (isQuiet && standPat + RFP_MARGIN <= alpha) {
+                continue;
+            }
+        }
 
         pos.make_move(m, st);
-        int score = -negamax(pos, depth - 1, -beta, -alpha, childPV, childPV_len);
+        int score = -negamax(pos, depth - 1, ply + 1, -beta, -alpha, childPV, childPV_len);
         pos.unmake_move(st);
 
         if (time_up()) {
