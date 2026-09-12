@@ -239,10 +239,49 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
     // Cumulative across the whole iterative deepening run, so that the
   // reported nodes/nps and the elapsed time refer to the same interval.
         nodes = 0;
+        uint64_t lastDepthNodes = 0;
+        int lastDepthMs = 1;
 
         for (int depth = 1; depth <= (limits.depth > 0 ? limits.depth : 99); depth++) {
-            interrupted = false;
-            int score = negamax(pos, depth, 0, -100000000, 100000000, pv, pv_len);
+                interrupted = false;
+
+                // --- TIME MANAGEMENT: stop if we can't afford depth+1 ---
+                if (timeManaged && depth >= 2 && finalPV_len > 0) {
+                    auto now = std::chrono::steady_clock::now();
+                    int elapsed = (int)std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
+                    if (elapsed <= 0) elapsed = 1;
+
+                    int time_left = TIME_LIMIT_MS - elapsed;
+                    if (time_left <= 0) {
+                        std::cout << "info string no time left, stopping at depth "
+                            << (depth - 1) << "\n";
+                        return finalPV[0];
+                    }
+
+                    // Estimate cost of next iteration from previous depth
+                    uint64_t nodesThisDepth = nodes - lastDepthNodes;
+                    if (nodesThisDepth == 0) nodesThisDepth = 1;
+
+                    uint64_t nps = nodes * 1000ULL / elapsed;
+                    if (nps == 0) nps = 1;
+
+                    // Simple model: next depth ≈ 2x current depth cost
+                    uint64_t estimatedNextNodes = nodesThisDepth * 2;
+                    int estimatedNextMs = (int)(estimatedNextNodes * 1000ULL / nps);
+
+                    if (time_left < estimatedNextMs) {
+                        std::cout << "info string not enough time for depth "
+                            << (depth + 1) << ", stopping at depth "
+                            << depth << "\n";
+                        return finalPV[0];
+                    }
+
+                    lastDepthNodes = nodes;
+                    lastDepthMs = elapsed;
+                }
+
+                int score = negamax(pos, depth, -100000000, 100000000, pv, pv_len);
+
 
             // compute ms and nps
             auto dend = std::chrono::steady_clock::now();
