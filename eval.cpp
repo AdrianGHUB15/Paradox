@@ -1,6 +1,4 @@
 #include "eval.h"
-#include "board.h"
-#include "bitboard.h"
 
 // ============================================================
 //  Helper: own pieces mask

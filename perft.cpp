@@ -1,17 +1,11 @@
-
-#include "perft.h"
-#include "board.h"
 #include "movegen.h"
 #include "perft_tables.h"
-#include <cstdio>
-#include <string>
 #include <unordered_map>
-#include <vector>
 #include <algorithm>
 #include <chrono>
 
 // ------------------------------------------------------------
-// MOVE ORDERING (your custom divide order)
+// MOVE ORDERING
 // ------------------------------------------------------------
 
 static int move_sort_key(const Board& pos, Move m) {

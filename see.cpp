@@ -1,5 +1,4 @@
 #include "see.h"
-#include "bitboard.h"
 #include <algorithm>
 
 static inline int see_value(Piece p) {
@@ -20,12 +19,6 @@ static Bitboard attackers_to(const Board& pos, int sq, Bitboard occ, Color side)
 }
 
 int see(const Board& pos, Move m) {
-    uint64_t t0 = now_ns();
-    prof.see_calls++;
-
-    // -------------------------
-    // YOUR ORIGINAL SEE CODE
-    // -------------------------
 
     int from = from_sq(m);
     int to = to_sq(m);
@@ -86,11 +79,6 @@ int see(const Board& pos, Move m) {
 
     int result = gain[0];
 
-    // -------------------------
-    // END OF YOUR CODE
-    // -------------------------
-
-    prof.see_ns += now_ns() - t0;
     return result;
 }
 

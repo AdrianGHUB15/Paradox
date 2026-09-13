@@ -2,8 +2,7 @@
 #include "zobrist.h"
 #include <cstdio>
 #include <cctype>
-#include <cstring>
-#include <cmath>
+
 Board::Board() {
     std::memset(pieceBB, 0, sizeof(pieceBB));
     std::memset(colorBB, 0, sizeof(colorBB));
@@ -134,10 +133,6 @@ void Board::set_fen(const char* fen) {
 
     hash = compute_hash(*this);
 }
-
-static inline int file_of(int sq) { return sq & 7; }
-static inline int rank_of(int sq) { return sq >> 3; }
-static inline bool on_board(int sq) { return sq >= 0 && sq < 64; }
 
 void Board::print() const {
     for (int r = 7; r >= 0; r--) {

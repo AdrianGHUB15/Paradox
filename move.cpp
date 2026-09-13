@@ -1,5 +1,4 @@
 #include "move.h"
-#include <cstdio>
 
 static char buf[8];
 

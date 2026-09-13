@@ -1,9 +1,5 @@
 #pragma once
 #include "board.h"
-#include "move.h"
-#include "types.h"
-#include "bitboard.h"
-#include <cstring>
 
 struct MoveList {
     Move moves[256];

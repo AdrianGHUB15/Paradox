@@ -22,6 +22,8 @@ extern bool infiniteSearch;
 extern int MAX_NODES;
 extern int MAX_DEPTH;
 
+void perft_break(Board& pos, int depth);
+std::uint64_t perft_divide(Board& pos, int depth);
 // ------------------------------------------------------------
 // Helpers
 // ------------------------------------------------------------
@@ -120,7 +122,7 @@ static void cmd_position(const std::string& line) {
 }
 
 // ------------------------------------------------------------
-// GO command (simple depth-only search)
+// GO command
 // ------------------------------------------------------------
 static void cmd_go(const std::string& line) {
     SearchLimits limits;
@@ -128,6 +130,28 @@ static void cmd_go(const std::string& line) {
     std::istringstream iss(line);
     std::string tok;
     iss >> tok;
+    // ------------------------------------------------------------
+    // GO divide / perftbreak
+    // ------------------------------------------------------------
+    {
+        std::istringstream iss2(line);
+        std::string goTok, mode;
+        iss2 >> goTok >> mode;
+
+        if (mode == "divide") {
+            int depth;
+            iss2 >> depth;
+            perft_divide(g_board, depth);
+            return;
+        }
+
+        if (mode == "perftbreak") {
+            int depth;
+            iss2 >> depth;
+            perft_break(g_board, depth);
+            return;
+        }
+    }
 
     while (iss >> tok) {
         if (tok == "depth") iss >> limits.depth;

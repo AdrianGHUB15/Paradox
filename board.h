@@ -1,11 +1,9 @@
 #pragma once
-#include "types.h"
 #include "bitboard.h"
 #include "move.h"
 #include "zobrist.h"
+
 #include <cstring>
-#include <cstdint>
-#include "profile.h"
 
 struct State {
     uint8_t   castling;
@@ -81,8 +79,6 @@ public:
 // in_check using magic sliding attacks
 // --------------------------------------------------------
 inline bool in_check(const Board& pos, Color side) {
-    uint64_t t0 = now_ns();
-    prof.in_check_calls++;
 
     Color them = Color(side ^ 1);
     int ksq = pos.kingSq[side];
@@ -96,36 +92,25 @@ inline bool in_check(const Board& pos, Color side) {
     Bitboard occ = pos.occupiedBB;
 
     // Pawn attacks
-    if (PAWN_ATTACKS[them ^ 1][ksq] & pawns) {
-        prof.in_check_ns += now_ns() - t0;
+    if (PAWN_ATTACKS[them ^ 1][ksq] & pawns)
         return true;
-    }
 
     // Knight
-    if (KNIGHT_ATTACKS[ksq] & knights) {
-        prof.in_check_ns += now_ns() - t0;
+    if (KNIGHT_ATTACKS[ksq] & knights)
         return true;
-    }
-
+    
     // King
-    if (KING_ATTACKS[ksq] & kings) {
-        prof.in_check_ns += now_ns() - t0;
+    if (KING_ATTACKS[ksq] & kings) 
         return true;
-    }
 
     // Bishop / queen diagonals
-    if (bishop_attack(ksq, occ) & (bishops | queens)) {
-        prof.in_check_ns += now_ns() - t0;
+    if (bishop_attack(ksq, occ) & (bishops | queens)) 
         return true;
-    }
 
     // Rook / queen orthogonals
-    if (rook_attack(ksq, occ) & (rooks | queens)) {
-        prof.in_check_ns += now_ns() - t0;
+    if (rook_attack(ksq, occ) & (rooks | queens))
         return true;
-    }
-
-    prof.in_check_ns += now_ns() - t0;
+    
     return false;
 }
 
@@ -133,8 +118,6 @@ inline bool in_check(const Board& pos, Color side) {
 // make_move / unmake_move
 // --------------------------------------------------------
 inline bool Board::make_move(Move m, State& st) {
-    uint64_t t0 = now_ns();
-    prof.make_move_calls++;
 
     // Save state
     st.castling = castling;
@@ -157,11 +140,9 @@ inline bool Board::make_move(Move m, State& st) {
     Color them = Color(us ^ 1);
 
     Piece pc = piece_at(from);
-    if (pc == NO_PIECE) {
-        prof.make_move_ns += now_ns() - t0;
+    if (pc == NO_PIECE)
         return false;
-    }
-
+    
     Bitboard fromBB = 1ULL << from;
     Bitboard toBB = 1ULL << to;
 
@@ -170,42 +151,40 @@ inline bool Board::make_move(Move m, State& st) {
         // White
         if (us == WHITE) {
             if (to == 6) { // e1->g1
-                if (!(castling & CASTLE_WK)) { prof.make_move_ns += now_ns() - t0; return false; }
-                if (in_check(*this, WHITE)) { prof.make_move_ns += now_ns() - t0; return false; }
-                if (square_attacked(5, BLACK)) { prof.make_move_ns += now_ns() - t0; return false; }
-                if (square_attacked(6, BLACK)) { prof.make_move_ns += now_ns() - t0; return false; }
-                if (!(pieceBB[WHITE][ROOK] & (1ULL << 7))) { prof.make_move_ns += now_ns() - t0; return false; }
+                if (!(castling & CASTLE_WK)) { return false; }
+                if (in_check(*this, WHITE)) { return false; }
+                if (square_attacked(5, BLACK)) { return false; }
+                if (square_attacked(6, BLACK)) { return false; }
+                if (!(pieceBB[WHITE][ROOK] & (1ULL << 7))) { return false; }
             }
             else if (to == 2) { // e1->c1
-                if (!(castling & CASTLE_WQ)) { prof.make_move_ns += now_ns() - t0; return false; }
-                if (in_check(*this, WHITE)) { prof.make_move_ns += now_ns() - t0; return false; }
-                if (square_attacked(3, BLACK)) { prof.make_move_ns += now_ns() - t0; return false; }
-                if (square_attacked(2, BLACK)) { prof.make_move_ns += now_ns() - t0; return false; }
-                if (!(pieceBB[WHITE][ROOK] & (1ULL << 0))) { prof.make_move_ns += now_ns() - t0; return false; }
+                if (!(castling & CASTLE_WQ)) { return false; }
+                if (in_check(*this, WHITE))  { return false; }
+                if (square_attacked(3, BLACK)) { return false; }
+                if (square_attacked(2, BLACK)) { return false; }
+                if (!(pieceBB[WHITE][ROOK] & (1ULL << 0))) { return false; }
             }
             else {
-                prof.make_move_ns += now_ns() - t0;
                 return false;
             }
         }
         // Black
         else {
             if (to == 62) { // e8->g8
-                if (!(castling & CASTLE_BK)) { prof.make_move_ns += now_ns() - t0; return false; }
-                if (in_check(*this, BLACK)) { prof.make_move_ns += now_ns() - t0; return false; }
-                if (square_attacked(61, WHITE)) { prof.make_move_ns += now_ns() - t0; return false; }
-                if (square_attacked(62, WHITE)) { prof.make_move_ns += now_ns() - t0; return false; }
-                if (!(pieceBB[BLACK][ROOK] & (1ULL << 63))) { prof.make_move_ns += now_ns() - t0; return false; }
+                if (!(castling & CASTLE_BK)) { return false; }
+                if (in_check(*this, BLACK)) { return false; }
+                if (square_attacked(61, WHITE)) { return false; }
+                if (square_attacked(62, WHITE)) { return false; }
+                if (!(pieceBB[BLACK][ROOK] & (1ULL << 63))) { return false; }
             }
             else if (to == 58) { // e8->c8
-                if (!(castling & CASTLE_BQ)) { prof.make_move_ns += now_ns() - t0; return false; }
-                if (in_check(*this, BLACK)) { prof.make_move_ns += now_ns() - t0; return false; }
-                if (square_attacked(59, WHITE)) { prof.make_move_ns += now_ns() - t0; return false; }
-                if (square_attacked(58, WHITE)) { prof.make_move_ns += now_ns() - t0; return false; }
-                if (!(pieceBB[BLACK][ROOK] & (1ULL << 56))) { prof.make_move_ns += now_ns() - t0; return false; }
+                if (!(castling & CASTLE_BQ)) { return false; }
+                if (in_check(*this, BLACK)) { return false; }
+                if (square_attacked(59, WHITE)) { return false; }
+                if (square_attacked(58, WHITE)) { return false; }
+                if (!(pieceBB[BLACK][ROOK] & (1ULL << 56))) { return false; }
             }
             else {
-                prof.make_move_ns += now_ns() - t0;
                 return false;
             }
         }
@@ -338,13 +317,10 @@ inline bool Board::make_move(Move m, State& st) {
     // repetition push
    // repHistory[repLen++] = hash;
 
-    prof.make_move_ns += now_ns() - t0;
     return true;
 }
 
 inline void Board::unmake_move(const State& st) {
-    uint64_t t0 = now_ns();
-    prof.unmake_move_calls++;
     repLen--;
 
     castling = st.castling;
@@ -358,15 +334,12 @@ inline void Board::unmake_move(const State& st) {
     hash = st.hash;
     stm = st.stm;
 
-    prof.unmake_move_ns += now_ns() - t0;
 }
 
 // --------------------------------------------------------
 // square_attacked using magic sliding attacks
 // --------------------------------------------------------
 inline bool Board::square_attacked(int sq, Color by) const {
-    uint64_t t0 = now_ns();
-    prof.square_attacked_calls++;
 
     Bitboard occ = occupiedBB;
     Bitboard pawns = pieceBB[by][PAWN];
@@ -377,36 +350,30 @@ inline bool Board::square_attacked(int sq, Color by) const {
     Bitboard queens = pieceBB[by][QUEEN];
 
     // Pawn attacks
-    if (PAWN_ATTACKS[by ^ 1][sq] & pawns) {
-        prof.square_attacked_ns += now_ns() - t0;
+    if (PAWN_ATTACKS[by ^ 1][sq] & pawns) 
         return true;
-    }
+    
 
     // Knight
-    if (KNIGHT_ATTACKS[sq] & knights) {
-        prof.square_attacked_ns += now_ns() - t0;
+    if (KNIGHT_ATTACKS[sq] & knights) 
         return true;
-    }
+    
 
     // King
-    if (KING_ATTACKS[sq] & kings) {
-        prof.square_attacked_ns += now_ns() - t0;
+    if (KING_ATTACKS[sq] & kings) 
         return true;
-    }
+    
 
     // Bishop / queen diagonals
-    if (bishop_attack(sq, occ) & (bishops | queens)) {
-        prof.square_attacked_ns += now_ns() - t0;
+    if (bishop_attack(sq, occ) & (bishops | queens)) 
         return true;
-    }
+    
 
     // Rook / queen orthogonals
-    if (rook_attack(sq, occ) & (rooks | queens)) {
-        prof.square_attacked_ns += now_ns() - t0;
+    if (rook_attack(sq, occ) & (rooks | queens)) 
         return true;
-    }
+    
 
-    prof.square_attacked_ns += now_ns() - t0;
     return false;
 }
 
@@ -414,8 +381,6 @@ inline bool Board::square_attacked(int sq, Color by) const {
 // Null move
 // --------------------------------------------------------
 inline void Board::make_null_move(State& st) {
-    uint64_t t0 = now_ns();
-    prof.null_make_calls++;
 
     // Save state
     st.castling = castling;
@@ -442,12 +407,10 @@ inline void Board::make_null_move(State& st) {
 
 //    repHistory[repLen++] = hash;
 
-    prof.null_make_ns += now_ns() - t0;
+
 }
 
 inline void Board::unmake_null_move(const State& st) {
-    uint64_t t0 = now_ns();
-    prof.null_unmake_calls++;
     repLen--;
 
     castling = st.castling;
@@ -461,7 +424,6 @@ inline void Board::unmake_null_move(const State& st) {
     hash = st.hash;
     stm = st.stm;
 
-    prof.null_unmake_ns += now_ns() - t0;
 }
 
 // --------------------------------------------------------

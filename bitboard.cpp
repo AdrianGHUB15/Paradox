@@ -1,5 +1,4 @@
 #include "bitboard.h"
-#include <cstdio>
 
 // Global attack tables
 Bitboard KNIGHT_ATTACKS[64];
@@ -18,7 +17,6 @@ Bitboard rookAttacks[64][4096];
 // --------------------------------------------
 // Knight attacks
 // --------------------------------------------
-// in some common header (e.g. bitboard.cpp / bitboard.h)
 const int DIRS[8] = {
     8,   // 0: N
    -8,   // 1: S

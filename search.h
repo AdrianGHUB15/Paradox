@@ -1,9 +1,5 @@
 #pragma once
-#include "types.h"
-#include "move.h"
-#include <vector>
 #include <string>
-#include <iostream>
 
 struct SearchLimits {
     int depth = 0;
@@ -16,8 +12,6 @@ struct SearchLimits {
     int wtime = 0, btime = 0;
     int winc = 0, binc = 0;
     int movestogo = 30;
-
-    int multipv = 1;
 };
 
 class Board;
@@ -33,5 +27,3 @@ extern bool stopRequested;
 extern bool infiniteSearch;
 extern int MAX_NODES;
 extern int MAX_DEPTH;
-extern bool Option_ProfilePrint;
-extern int  Option_HashMB;
