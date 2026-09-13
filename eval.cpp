@@ -181,9 +181,6 @@ EvalParams evalParams = {
     {0,20,40,60,80,120,160,0},
 
     // King safety
-    10,
-
-    // Tempo
     10
 };
 
