@@ -1,7 +1,4 @@
 #include "movegen.h"
-#include "bitboard.h"
-#include "move.h"
-#include "board.h"
 
 // Helpers
 static inline int file_of(int sq) { return sq & 7; }

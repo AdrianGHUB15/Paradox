@@ -50,23 +50,31 @@ bool time_up() {
     int ms = (int)std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
     return ms >= TIME_LIMIT_MS;
 }
+
 void print_info(int depth, int score, int ms, uint64_t nodes, uint64_t nps,
     Move pv[], int pv_len)
 {
-    auto is_mate_score = [&](int s) {
-        return std::abs(s) >= MATE - 1000;   // margin for mate propagation^M
+    auto is_mate = [&](int s) {
+        return s >= MATE - 1000;   // delivering mate
+        };
+
+    auto is_mated = [&](int s) {
+        return s <= -MATE + 1000;  // being mated
         };
 
     auto score_to_mate = [&](int s) {
         int plies = (s > 0 ? MATE - s : MATE + s);
-        return (plies + 1) / 2;              // convert plies → moves^M
+        return (plies + 1) / 2;
         };
+
 
         std::cout << "info depth " << depth;
 
-        if (is_mate_score(score)) {
-            int mate = score_to_mate(score);
-            std::cout << " score mate " << mate;
+        if (is_mate(score)) {
+            std::cout << " score mate " << score_to_mate(score);
+        }
+        else if (is_mated(score)) {
+            std::cout << " score mate -" << score_to_mate(score);
         }
         else {
             std::cout << " score cp " << score;
@@ -84,24 +92,65 @@ void print_info(int depth, int score, int ms, uint64_t nodes, uint64_t nps,
 };
 
 Move run_bench(int depth) {
-    Board b;
-    b.set_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    static const char* bench_fens[] = {
+        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
+        "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1",
+        "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",
+        "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8",
+        "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10"
+    };
+
+    const int num_positions = 6;
 
     SearchLimits limits;
-    // Depth 8 runs ~2.4s; depth 6 was only ~67ms, too short for the timer
-    // resolution to give OpenBench a stable nps reading.
-    limits.depth = (depth > 0 ? depth : 8);
-    limits.bench_mode = true;
+    limits.depth = (depth > 0 ? depth : 7);
+    limits.bench_mode = false;   // disable built‑in bench summary
 
-    return search_bestmove(b, limits);
+    uint64_t totalNodes = 0;
+    auto benchStart = std::chrono::steady_clock::now();
+
+    Move lastMove = 0;
+
+    for (int idx = 0; idx < num_positions; idx++) {
+        const char* fen = bench_fens[idx];
+
+        std::cout << "position " << (idx + 1) << "/" << num_positions
+            << " (" << fen << ")\n";
+
+        Board b;
+        b.set_fen(fen);
+
+        nodes = 0;   // reset node counter
+
+        // This prints depth, score, nodes, nps, pv automatically
+        lastMove = search_bestmove(b, limits);
+
+        std::cout << "bestmove " << move_to_string(lastMove) << "\n\n";
+
+        totalNodes += nodes;
+    }
+
+    auto benchEnd = std::chrono::steady_clock::now();
+    uint64_t ms = std::chrono::duration_cast<std::chrono::milliseconds>(benchEnd - benchStart).count();
+    if (ms == 0) ms = 1;
+
+    uint64_t nps = (totalNodes * 1000ULL) / ms;
+
+    std::cout << "bench: " << ms << " ms "
+        << totalNodes << " nodes "
+        << nps << " nps\n";
+
+    return lastMove;
 }
+
+
 
 int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int& pv_len) {
     nodes++;
-    int standPat = evaluate(pos);
+    int eval = evaluate(pos);
 
     int bestScore = -100000000;
-    Move bestMove = 0;
 
     if (time_up()) {
         interrupted = true;
@@ -124,8 +173,8 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         return 0;
     }
     // Stable, so that tied moves keep generation order rather than whatever
- // the standard library's introsort happens to produce. Keeps node counts
- // identical across compilers/platforms, as OpenBench requires.
+    // the standard library's introsort happens to produce. Keeps node counts
+    // identical across compilers/platforms, as OpenBench requires.
     std::stable_sort(list.moves, list.moves + list.size,
         [&](Move a, Move b) {
             return move_score(a) > move_score(b);
@@ -138,13 +187,9 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         Move m = list.moves[i];
         State st;
         // --- Reverse Futility Pruning (RFP) ---
-        if (depth <= 4) {
+        if (depth <= 4 && !is_capture(m)) {
 
-            bool isQuiet = !is_capture(m);
-
-            const int RFP_MARGIN = 150;
-
-            if (isQuiet && standPat + RFP_MARGIN <= alpha) {
+            if (eval + 150 <= alpha) {
                 continue;
             }
         }
@@ -160,7 +205,6 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
 
         if (score > bestScore) {
             bestScore = score;
-            bestMove = m;
 
             pv[0] = m;
             for (int j = 0; j < childPV_len; j++)
@@ -237,93 +281,95 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
     int pv_len = 0;
 
     // Cumulative across the whole iterative deepening run, so that the
-  // reported nodes/nps and the elapsed time refer to the same interval.
-        nodes = 0;
-        uint64_t lastDepthNodes = 0;
-        int lastDepthMs = 1;
+    // reported nodes/nps and the elapsed time refer to the same interval.
+    nodes = 0;
+    uint64_t lastDepthNodes = 0;
 
-        for (int depth = 1; depth <= (limits.depth > 0 ? limits.depth : 99); depth++) {
-                interrupted = false;
+    for (int depth = 1; depth <= (limits.depth > 0 ? limits.depth : 99); depth++) {
+        interrupted = false;
 
-                // --- TIME MANAGEMENT: stop if we can't afford depth+1 ---
-                if (timeManaged && depth >= 2 && finalPV_len > 0) {
-                    auto now = std::chrono::steady_clock::now();
-                    int elapsed = (int)std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
-                    if (elapsed <= 0) elapsed = 1;
+        // --- TIME MANAGEMENT: stop if we can't afford depth+1 ---
+        if (timeManaged && !limits.movetime && depth >= 2 && finalPV_len > 0) {
+            auto now = std::chrono::steady_clock::now();
+            int elapsed = (int)std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
 
-                    int time_left = TIME_LIMIT_MS - elapsed;
-                    if (time_left <= 0) {
-                        std::cout << "info string no time left, stopping at depth "
-                            << (depth - 1) << "\n";
-                        return finalPV[0];
-                    }
+            if (elapsed <= 0) elapsed = 1;
 
-                    // Estimate cost of next iteration from previous depth
-                    uint64_t nodesThisDepth = nodes - lastDepthNodes;
-                    if (nodesThisDepth == 0) nodesThisDepth = 1;
+            int time_left = TIME_LIMIT_MS - elapsed;
 
-                    uint64_t nps = nodes * 1000ULL / elapsed;
-                    if (nps == 0) nps = 1;
-
-                    // Simple model: next depth ≈ 2x current depth cost
-                    uint64_t estimatedNextNodes = nodesThisDepth * 2;
-                    int estimatedNextMs = (int)(estimatedNextNodes * 1000ULL / nps);
-
-                    if (time_left < estimatedNextMs) {
-                        std::cout << "info string not enough time for depth "
-                            << (depth + 1) << ", stopping at depth "
-                            << depth << "\n";
-                        return finalPV[0];
-                    }
-
-                    lastDepthNodes = nodes;
-                    lastDepthMs = elapsed;
-                }
-
-                int score = negamax(pos, depth, 0,  -100000000, 100000000, pv, pv_len);
-
-
-            // compute ms and nps
-            auto dend = std::chrono::steady_clock::now();
-            int ms = (int)std::chrono::duration_cast<std::chrono::milliseconds>(dend - startTime).count();
-            if (ms == 0) ms = 1;
-            uint64_t nps = nodes * 1000 / ms;
-
-            // Save current depth PV (even if interrupted)
-            currentScore = score;
-            currentPV_len = pv_len;
-            for (int i = 0; i < pv_len; i++)
-                currentPV[i] = pv[i];
-
-            if (!interrupted) {
-                finalScore = score;
-                finalPV_len = pv_len;
-                for (int i = 0; i < pv_len; i++)
-                    finalPV[i] = pv[i];
-
-                print_info(depth, score, ms, nodes, nps, pv, pv_len);
-                continue;
+            if (time_left <= 0) {
+                std::cout << "info string no time left, stopping at depth "
+                    << (depth - 1) << "\n";
+                    return finalPV[0];
             }
 
-            if (interrupted && timeManaged) {
+            // Estimate cost of next iteration from previous depth
+            uint64_t nodesThisDepth = nodes - lastDepthNodes;
 
-                // 1. Print interruption message
-                std::cout << "info string search finished before depth "
-                    << depth << " was completed, falling back to depth "
-                    << (depth - 1) << "\n";
+            if (nodesThisDepth == 0) nodesThisDepth = 1;
 
-                // 2. Print depth D only if it has a PV
-                if (currentPV_len > 0)
-                    print_info(depth, currentScore, ms, nodes, nps,
-                        currentPV, currentPV_len);
+            uint64_t nps = nodes * 1000ULL / elapsed;
 
-                // 3. Print depth D-1 full info
-                print_info(depth - 1, finalScore, ms, nodes, nps,
-                    finalPV, finalPV_len);
+            if (nps == 0) nps = 1;
 
-                // 4. Return best move from last completed depth
+            // Simple model: next depth ≈ 2x current depth cost
+            uint64_t estimatedNextNodes = nodesThisDepth * 2;
+            int estimatedNextMs = (int)(estimatedNextNodes * 1000ULL / nps);
+
+            if (time_left < estimatedNextMs) {
+                std::cout << "info string not enough time for depth "
+                    << (depth + 1) << ", stopping at depth "
+                    << depth << "\n";
                 return finalPV[0];
             }
+
+            lastDepthNodes = nodes;
+        }
+
+        int score = negamax(pos, depth, 0,  -100000000, 100000000, pv, pv_len);
+
+
+        // compute ms and nps
+        auto dend = std::chrono::steady_clock::now();
+        int ms = (int)std::chrono::duration_cast<std::chrono::milliseconds>(dend - startTime).count();
+        if (ms == 0) ms = 1;
+        uint64_t nps = nodes * 1000 / ms;
+
+        // Save current depth PV (even if interrupted)
+        currentScore = score;
+        currentPV_len = pv_len;
+        for (int i = 0; i < pv_len; i++)
+            currentPV[i] = pv[i];
+
+        if (!interrupted) {
+            finalScore = score;
+            finalPV_len = pv_len;
+            for (int i = 0; i < pv_len; i++)
+                finalPV[i] = pv[i];
+
+            print_info(depth, score, ms, nodes, nps, pv, pv_len);
+            continue;
+        }
+
+        if (interrupted && timeManaged) {
+
+            // 1. Print interruption message
+            std::cout << "info string search finished before depth "
+                << depth << " was completed, falling back to depth "
+                << (depth - 1) << "\n";
+
+            // 2. Print depth D only if it has a PV
+            if (currentPV_len > 0)
+                print_info(depth, currentScore, ms, nodes, nps,
+                    currentPV, currentPV_len);
+
+            // 3. Print depth D-1 full info
+            print_info(depth - 1, finalScore, ms, nodes, nps,
+                finalPV, finalPV_len);
+
+            // 4. Return best move from last completed depth
+            return finalPV[0];
+        }
 
         if (time_up())
             break;
@@ -348,7 +394,9 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
     // After iterative deepening loop ends
     if (finalPV_len > 0)
         return finalPV[0];        // last completed depth
+
     if (currentPV_len > 0)
         return currentPV[0];      // partial PV from interrupted depth
+
     return bestMove;              // fallback (should never be 0 now)
 }

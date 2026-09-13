@@ -1,6 +1,5 @@
 #pragma once
 #include "types.h"
-#include <cstdint>
 
 typedef uint64_t Bitboard;
 
