@@ -1,4 +1,5 @@
 #pragma once
+#include "move.h"
 #include <string>
 
 struct SearchLimits {
