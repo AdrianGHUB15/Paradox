@@ -91,7 +91,7 @@ void print_info(int depth, int score, int ms, uint64_t nodes, uint64_t nps,
  
 };
 int qsearch(Board& pos, int alpha, int beta) {
-
+    nodes++;
     int standPat = evaluate(pos);
 
     if (standPat >= beta)
@@ -107,11 +107,10 @@ int qsearch(Board& pos, int alpha, int beta) {
 
         Move m = list.moves[i];
 
-        // Captures only
+        State st;
+
         if (!is_capture(m))
             continue;
-
-        State st;
 
         pos.make_move(m, st);
 
@@ -126,7 +125,7 @@ int qsearch(Board& pos, int alpha, int beta) {
             alpha = score;
     }
 
-    return alpha;
+    return standPat;
 }
 int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int& pv_len) {
     nodes++;
