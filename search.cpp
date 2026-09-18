@@ -134,7 +134,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         // --- Reverse Futility Pruning (RFP) ---
         if (depth <= 4 && !is_capture(m)) {
 
-            if (eval + 150 <= alpha) {
+            if (eval + 150 * depth <= alpha) {
                 continue;
             }
         }
