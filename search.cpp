@@ -90,7 +90,44 @@ void print_info(int depth, int score, int ms, uint64_t nodes, uint64_t nps,
         std::cout << "\n";
  
 };
+int qsearch(Board& pos, int alpha, int beta) {
 
+    int standPat = evaluate(pos);
+
+    if (standPat >= beta)
+        return beta;
+
+    if (standPat > alpha)
+        alpha = standPat;
+
+    MoveList list;
+    generate_legal(pos, list);
+
+    for (int i = 0; i < list.size; i++) {
+
+        Move m = list.moves[i];
+
+        // Captures only
+        if (!is_capture(m))
+            continue;
+
+        State st;
+
+        pos.make_move(m, st);
+
+        int score = -qsearch(pos, -beta, -alpha);
+
+        pos.unmake_move(st);
+
+        if (score >= beta)
+            return beta;
+
+        if (score > alpha)
+            alpha = score;
+    }
+
+    return alpha;
+}
 int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int& pv_len) {
     nodes++;
     int eval = evaluate(pos);
@@ -105,7 +142,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
 
     if (depth == 0) {
         pv_len = 0;
-        return evaluate(pos);
+        return qsearch(pos, alpha, beta);
     }
 
     MoveList list;

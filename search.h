@@ -19,6 +19,7 @@ class Board;
 
 Move search_bestmove(Board& pos, const SearchLimits& limits);
 
+int qsearch(Board& pos, int alpha, int beta);
 
 // Fixed-depth startpos bench; prints a "<nodes> nodes <nps> nps" summary.
 // depth <= 0 uses the default bench depth.
