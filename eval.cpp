@@ -269,45 +269,6 @@ int evaluate(const Board& pos) {
         int sign = (col == WHITE ? 1 : -1);
         Bitboard own = own_pieces(pos, col);
 
-        // Mobility
-        {
-            // Knights
-            Bitboard n = pos.pieceBB[col][KNIGHT];
-            while (n) {
-                int sq = pop_lsb(n);
-                int moves = popcount(attacks_knight(sq) & ~own);
-                mg += sign * moves * evalParams.knightMobMG;
-                eg += sign * moves * evalParams.knightMobEG;
-            }
-
-            // Bishops
-            Bitboard b = pos.pieceBB[col][BISHOP];
-            while (b) {
-                int sq = pop_lsb(b);
-                int moves = popcount(bishop_attack(sq, occ) & ~own);
-                mg += sign * moves * evalParams.bishopMobMG;
-                eg += sign * moves * evalParams.bishopMobEG;
-            }
-
-            // Rooks
-            Bitboard r = pos.pieceBB[col][ROOK];
-            while (r) {
-                int sq = pop_lsb(r);
-                int moves = popcount(rook_attack(sq, occ) & ~own);
-                mg += sign * moves * evalParams.rookMobMG;
-                eg += sign * moves * evalParams.rookMobEG;
-            }
-
-            // Queens
-            Bitboard q = pos.pieceBB[col][QUEEN];
-            while (q) {
-                int sq = pop_lsb(q);
-                int moves = popcount(queen_attack(sq, occ) & ~own);
-                mg += sign * moves * evalParams.queenMobMG;
-                eg += sign * moves * evalParams.queenMobEG;
-            }
-        }
-
         // Bishop pair
         if (popcount(pos.pieceBB[col][BISHOP]) >= 2) {
             mg += sign * evalParams.bishopPairMG;
