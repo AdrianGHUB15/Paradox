@@ -308,12 +308,6 @@ int evaluate(const Board& pos) {
             }
         }
 
-        // Bishop pair
-        if (popcount(pos.pieceBB[col][BISHOP]) >= 2) {
-            mg += sign * evalParams.bishopPairMG;
-            eg += sign * evalParams.bishopPairEG;
-        }
-
         // Rook on open / semi-open file
         {
             Bitboard rooks = pos.pieceBB[col][ROOK];
