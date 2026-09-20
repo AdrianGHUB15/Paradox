@@ -314,28 +314,6 @@ int evaluate(const Board& pos) {
             eg += sign * evalParams.bishopPairEG;
         }
 
-        // Rook on open / semi-open file
-        {
-            Bitboard rooks = pos.pieceBB[col][ROOK];
-            Bitboard pawnsUs = pos.pieceBB[col][PAWN];
-            Bitboard pawnsThem = pos.pieceBB[!col][PAWN];
-
-            while (rooks) {
-                int sq = pop_lsb(rooks);
-                int file = sq & 7;
-
-                Bitboard mask = file_mask[file];
-
-                bool usPawn = (pawnsUs & mask) != 0;
-                bool themPawn = (pawnsThem & mask) != 0;
-
-                if (!usPawn && !themPawn)
-                    mg += sign * evalParams.rookOpenFile;
-                else if (!usPawn)
-                    mg += sign * evalParams.rookSemiOpenFile;
-            }
-        }
-
         // Passed pawns
         {
             Bitboard pawns = pos.pieceBB[col][PAWN];
