@@ -30,6 +30,25 @@ int currentScore = 0;
 
 constexpr int MATE = 32000;
 
+int history_score(Move m) {
+    return history[from_sq(m)][to_sq(m)];
+}
+
+void update_history(Move m, int depth, bool cutoff) {
+    int from = from_sq(m);
+    int to = to_sq(m);
+
+    int bonus = depth * depth;
+    int& h = history[from][to];
+
+    if (cutoff)
+        h += bonus;
+    else
+        h -= bonus / 2;
+
+    h = std::clamp(h, -8192, 8192);
+}
+
 int move_score(Move m) {
     int from = from_sq(m);
     int to = to_sq(m);
@@ -122,8 +141,9 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     // identical across compilers/platforms, as OpenBench requires.
     std::stable_sort(list.moves, list.moves + list.size,
         [&](Move a, Move b) {
-            return move_score(a) > move_score(b);
+            return history_score(a) > history_score(b);
         });
+
 
     Move childPV[128];
     int childPV_len = 0;
@@ -160,10 +180,10 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         if (score > alpha) {
             alpha = score;
 
-            int from = from_sq(m);
-            int to = to_sq(m);
-
-            history[from][to] += depth * depth;
+            if (alpha >= beta)
+                update_history(m, depth, true);
+            else
+                update_history(m, depth, false);
         }
 
         if (alpha >= beta)
