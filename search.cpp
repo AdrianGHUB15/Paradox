@@ -220,6 +220,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
 
     MoveList rootMoves;
     generate_legal(pos, rootMoves);
+    std::cerr << "DEBUG root moves: " << rootMoves.size << "\n";
 
     if (rootMoves.size == 1 && !limits.movetime) {
         TIME_LIMIT_MS = std::min(TIME_LIMIT_MS, 500);
@@ -346,6 +347,11 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
 
     if (currentPV_len > 0)
         return currentPV[0];      // partial PV from interrupted depth
+    std::cerr << "DEBUG search end: "
+        << "finalPV_len=" << finalPV_len
+        << " currentPV_len=" << currentPV_len
+        << " bestMove=" << bestMove
+        << "\n";
 
     return bestMove;              // fallback (should never be 0 now)
 }
