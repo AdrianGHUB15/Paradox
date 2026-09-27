@@ -96,6 +96,10 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     int eval = evaluate(pos);
 
     int bestScore = -100000000;
+    if (pos.is_repetition()) {
+        pv_len = 0;
+        return 0;
+    }
 
     if (time_up()) {
         interrupted = true;
