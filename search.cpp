@@ -121,6 +121,8 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
             return -MATE + ply;
         return 0;
     }
+
+    bool inCheck = in_check(pos, pos.stm);
     // Stable, so that tied moves keep generation order rather than whatever
     // the standard library's introsort happens to produce. Keeps node counts
     // identical across compilers/platforms, as OpenBench requires.
@@ -136,7 +138,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         Move m = list.moves[i];
         State st;
         // --- Reverse Futility Pruning (RFP) ---
-        if (depth <= 4 && !is_capture(m)) {
+        if (depth > 1 && depth <= 4 && !inCheck && !is_capture(m)) {
 
             if (eval + 150 <= alpha) {
                 continue;
