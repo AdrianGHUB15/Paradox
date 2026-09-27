@@ -96,7 +96,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     int eval = evaluate(pos);
 
     int bestScore = -100000000;
-    if (pos.is_repetition()) {
+    if (pos.is_repetition() && ply > 0) {
         pv_len = 0;
         return 0;
     }
@@ -138,7 +138,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         Move m = list.moves[i];
         State st;
         // --- Reverse Futility Pruning (RFP) ---
-        if (depth > 1 && depth <= 4 && !inCheck && !is_capture(m)) {
+        if (depth <= 4 && !inCheck && !is_capture(m)) {
 
             if (eval + 150 <= alpha) {
                 continue;
