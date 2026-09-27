@@ -132,6 +132,10 @@ void Board::set_fen(const char* fen) {
     fullmoveNumber = 1;
 
     hash = compute_hash(*this);
+
+    // Initialize repetition history with the starting position.
+    repLen = 1;
+    repHistory[0] = hash;
 }
 
 void Board::print() const {

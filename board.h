@@ -58,16 +58,16 @@ public:
     bool make_move(Move m, State& st);
     void unmake_move(const State& st);
 
-    inline bool is_repetition(int ply) const {
-        int start = repLen - ply;
-        if (start < 0) start = 0;
+    inline bool is_repetition() const {
+        int count = 0;
 
-        uint64_t h = hash;
+        for (int i = repLen - 1; i >= 0; --i) {
+            if (repHistory[i] == hash) {
+                ++count;
 
-        // check same-side-to-move positions
-        for (int i = repLen - 2; i >= start; i -= 2) {
-            if (repHistory[i] == h)
-                return true;
+                if (count >= 2)
+                    return true;
+            }
         }
         return false;
     }
@@ -315,13 +315,14 @@ inline bool Board::make_move(Move m, State& st) {
     hash ^= Z_STM;
 
     // repetition push
-   // repHistory[repLen++] = hash;
+    repHistory[repLen++] = hash;
 
     return true;
 }
 
 inline void Board::unmake_move(const State& st) {
-    repLen--;
+    if (repLen > 0)
+        repLen--;
 
     castling = st.castling;
     epSquare = st.epSquare;
@@ -404,14 +405,9 @@ inline void Board::make_null_move(State& st) {
     // Flip side
     stm = Color(stm ^ 1);
     hash ^= Z_STM;
-
-//    repHistory[repLen++] = hash;
-
-
 }
 
 inline void Board::unmake_null_move(const State& st) {
-    repLen--;
 
     castling = st.castling;
     epSquare = st.epSquare;
