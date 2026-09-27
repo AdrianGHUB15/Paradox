@@ -30,10 +30,29 @@ int currentScore = 0;
 
 constexpr int MATE = 32000;
 
-int move_score(Move m) {
-    int from = from_sq(m);
-    int to = to_sq(m);
-    return history[from][to];
+static constexpr int PieceValue[6] = {
+    100,   // pawn
+    320,   // knight
+    330,   // bishop
+    500,   // rook
+    900,   // queen
+    20000  // king
+};
+
+int move_score(Board& pos, Move m) {
+
+    if (is_capture(m)) {
+
+        Piece victim = pos.piece_at(to_sq(m));
+        Piece attacker = pos.piece_at(from_sq(m));
+
+        if (victim != NO_PIECE)
+            return 10000000
+            + PieceValue[victim] * 100
+            - PieceValue[attacker];
+    }
+
+    return history[from_sq(m)][to_sq(m)];
 }
 
 bool time_up() {
@@ -122,7 +141,8 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     // identical across compilers/platforms, as OpenBench requires.
     std::stable_sort(list.moves, list.moves + list.size,
         [&](Move a, Move b) {
-            return move_score(a) > move_score(b);
+            return move_score(pos, a)
+        > move_score(pos, b);
         });
 
     Move childPV[128];
