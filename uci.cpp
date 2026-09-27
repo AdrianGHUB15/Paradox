@@ -5,6 +5,7 @@
 #include <string>
 #include <iostream>
 #include <sstream>
+#include <cassert>
 
 #include "board.h"
 #include "movegen.h"
@@ -174,6 +175,25 @@ static void cmd_go(const std::string& line) {
         limits.infinite = true;
 
     Move best = search_bestmove(g_board, limits);
+
+    // Verify that the engine's chosen move is legal.
+    MoveList legalMoves;
+    generate_legal(g_board, legalMoves);
+
+    bool legal = false;
+    for (int i = 0; i < legalMoves.size; ++i) {
+        if (legalMoves.moves[i] == best) {
+            legal = true;
+            break;
+        }
+    }
+
+    std::cerr << "DEBUG bestmove: " << move_to_string(best)
+        << " raw=" << best
+        << " legal=" << legal << "\n";
+
+    assert(legal && "Engine selected an illegal move");
+
     std::cout << "bestmove " << move_to_string(best) << "\n";
 }
 
