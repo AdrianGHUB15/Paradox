@@ -39,7 +39,6 @@ static constexpr int PieceValue[6] = {
     900,   // queen
     20000  // king
 };
-
 int move_score(Board& pos, Move m, int ply) {
 
     if (is_capture(m)) {
@@ -47,20 +46,25 @@ int move_score(Board& pos, Move m, int ply) {
         Piece victim = pos.piece_at(to_sq(m));
         Piece attacker = pos.piece_at(from_sq(m));
 
-        if (victim != NO_PIECE)
+        if (victim != NO_PIECE) {
             return 30000000
-            + PieceValue[victim] * 100
-            - PieceValue[attacker];
+                + PieceValue[victim] * 100
+                - PieceValue[attacker];
+        }
 
-        if (m == killers[ply][0])
-            return 20000000;
-
-        if (m == killers[ply][1])
-            return 19000000;
+        // En-passant or other capture with no piece on target.
+        return 30000000;
     }
+
+    if (m == killers[ply][0])
+        return 20000000;
+
+    if (m == killers[ply][1])
+        return 19000000;
 
     return history[from_sq(m)][to_sq(m)];
 }
+
 
 bool time_up() {
     if (stopRequested)
