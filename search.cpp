@@ -12,6 +12,7 @@ std::chrono::steady_clock::time_point startTime;
 int TIME_LIMIT_MS = 0;
 
 static int history[64][64];
+static Move killers[128][2];
 
 bool stopRequested = false;
 bool infiniteSearch = false;
@@ -39,7 +40,7 @@ static constexpr int PieceValue[6] = {
     20000  // king
 };
 
-int move_score(Board& pos, Move m) {
+int move_score(Board& pos, Move m, int ply) {
 
     if (is_capture(m)) {
 
@@ -47,10 +48,16 @@ int move_score(Board& pos, Move m) {
         Piece attacker = pos.piece_at(from_sq(m));
 
         if (victim != NO_PIECE)
-            return 10000000
+            return 30000000
             + PieceValue[victim] * 100
             - PieceValue[attacker];
     }
+
+    if (m == killers[ply][0])
+        return 20000000;
+
+    if (m == killers[ply][1])
+        return 19000000;
 
     return history[from_sq(m)][to_sq(m)];
 }
@@ -183,8 +190,8 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     // identical across compilers/platforms, as OpenBench requires.
     std::stable_sort(list.moves, list.moves + list.size,
         [&](Move a, Move b) {
-            return move_score(pos, a)
-        > move_score(pos, b);
+            return move_score(pos, a, ply)
+        > move_score(pos, b, ply);
         });
 
     Move childPV[128];
@@ -228,8 +235,15 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
             history[from][to] += depth * depth;
         }
 
-        if (alpha >= beta)
+        if (alpha >= beta) {
+
+            if (!is_capture(m)) {
+                killers[ply][1] = killers[ply][0];
+                killers[ply][0] = m;
+            }
+
             break;
+        }
     }
 
     return bestScore;
@@ -274,7 +288,9 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
     }
 
     startTime = std::chrono::steady_clock::now();
+
     std::memset(history, 0, sizeof(history));
+    std::memset(killers, 0, sizeof(killers));
 
     MoveList rootMoves;
     generate_legal(pos, rootMoves);
