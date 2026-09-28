@@ -346,7 +346,36 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
             lastDepthNodes = nodes;
         }
 
-        int score = negamax(pos, depth, 0,  -100000000, 100000000, pv, pv_len);
+        int score;
+
+        if (depth < 5 || finalPV_len == 0) {
+            score = negamax(pos, depth, 0, -100000000, 100000000, pv, pv_len);
+        }
+        else {
+            int delta = 25;
+            int alpha = finalScore - delta;
+            int beta = finalScore + delta;
+
+            while (true) {
+                score = negamax(pos, depth, 0, alpha, beta, pv, pv_len);
+
+                if (interrupted)
+                    break;
+
+                if (score <= alpha) {
+                    alpha -= delta;
+                    delta *= 2;
+                }
+                else if (score >= beta) {
+                    beta += delta;
+                    delta *= 2;
+                }
+                else {
+                    break;
+                }
+            }
+        }
+
 
 
         // compute ms and nps
