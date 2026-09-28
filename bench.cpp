@@ -18,7 +18,7 @@ Move run_bench(int depth) {
     const int num_positions = 6;
 
     SearchLimits limits;
-    limits.depth = (depth > 0 ? depth : 6);
+    limits.depth = (depth > 0 ? depth : 5);
     limits.bench_mode = false;   // disable built‑in bench summary
 
     uint64_t totalNodes = 0;
