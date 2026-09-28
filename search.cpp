@@ -144,7 +144,7 @@ int qsearch(Board& pos, int alpha, int beta) {
             alpha = score;
     }
 
-    return standPat;
+    return alpha;
 }
 int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int& pv_len) {
     nodes++;
