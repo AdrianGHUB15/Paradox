@@ -348,7 +348,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
 
         int score;
 
-        if (depth < 5 || finalPV_len == 0) {
+        if (depth == 1 || finalPV_len == 0) {
             score = negamax(pos, depth, 0, -100000000, 100000000, pv, pv_len);
         }
         else {
