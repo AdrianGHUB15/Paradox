@@ -6,6 +6,7 @@
 #include "eval.h"
 #include "movegen.h"
 #include "search.h"
+#include "tt.h"
 
 uint64_t nodes = 0;
 std::chrono::steady_clock::time_point startTime;
@@ -29,6 +30,31 @@ int currentPV_len = 0;
 int currentScore = 0;
 
 constexpr int MATE = 32000;
+
+constexpr int MATE_THRESHOLD = MATE - 1000;
+
+static int tt_score(int score, int ply)
+{
+    if (score >= MATE_THRESHOLD)
+        return score + ply;
+
+    if (score <= -MATE_THRESHOLD)
+        return score - ply;
+
+    return score;
+}
+
+static int search_score(int score, int ply)
+{
+    if (score >= MATE_THRESHOLD)
+        return score - ply;
+
+    if (score <= -MATE_THRESHOLD)
+        return score + ply;
+
+    return score;
+}
+
 
 static constexpr int PieceValue[6] = {
     100,   // pawn
@@ -101,6 +127,7 @@ void print_info(int depth, int score, int ms, uint64_t nodes, uint64_t nps,
         std::cout << " time " << ms
             << " nodes " << nodes
             << " nps " << nps
+            << " hashfull " << tt_hashfull()
             << " pv";
 
         for (int i = 0; i < pv_len; i++)
@@ -146,80 +173,177 @@ int qsearch(Board& pos, int alpha, int beta) {
 
     return standPat;
 }
-int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int& pv_len) {
+int negamax(Board& pos, int depth, int ply, int alpha, int beta,
+    Move pv[], int& pv_len)
+{
     nodes++;
-    int eval = evaluate(pos);
 
-    int bestScore = -100000000;
+    pv_len = 0;
 
-    if (pos.is_repetition() && ply > 0) {
-        pv_len = 0;
+    if (pos.is_repetition() && ply > 0)
         return 0;
-    }
+
     if (time_up()) {
         interrupted = true;
-        return bestScore;
+        return 0;
     }
 
+    // ------------------------------------------------------------
+    // TT probe
+    // ------------------------------------------------------------
 
-    if (depth == 0) {
-        pv_len = 0;
+    int alphaOrig = alpha;
+
+    TTEntry* tt = tt_probe(pos.hash);
+
+    Move ttMove = 0;
+
+    if (tt && tt->key == pos.hash) {
+
+        ttMove = tt->bestMove;
+
+        if (tt->depth >= depth) {
+
+            int score = search_score(tt->score, ply);
+
+            if (tt->bound == BOUND_EXACT)
+                return score;
+
+            if (tt->bound == BOUND_LOWER && score >= beta)
+                return score;
+
+            if (tt->bound == BOUND_UPPER && score <= alpha)
+                return score;
+        }
+    }
+
+    // ------------------------------------------------------------
+    // Leaf
+    // ------------------------------------------------------------
+
+    if (depth == 0)
         return qsearch(pos, alpha, beta);
-    }
+
+    // ------------------------------------------------------------
+    // Evaluation
+    // ------------------------------------------------------------
+
+    int eval = evaluate(pos);
+
+    // ------------------------------------------------------------
+    // Generate legal moves
+    // ------------------------------------------------------------
 
     MoveList list;
     generate_legal(pos, list);
 
+    // ------------------------------------------------------------
+    // Checkmate / stalemate
+    // ------------------------------------------------------------
+
     if (list.size == 0) {
-        pv_len = 0;
+
         if (in_check(pos, pos.stm))
             return -MATE + ply;
+
         return 0;
     }
 
-    bool inCheck = in_check(pos, pos.stm);
-    // Stable, so that tied moves keep generation order rather than whatever
-    // the standard library's introsort happens to produce. Keeps node counts
-    // identical across compilers/platforms, as OpenBench requires.
-    std::stable_sort(list.moves, list.moves + list.size,
+    // ------------------------------------------------------------
+    // Move ordering
+    // ------------------------------------------------------------
+
+    std::stable_sort(
+        list.moves,
+        list.moves + list.size,
         [&](Move a, Move b) {
-            return move_score(pos, a)
-        > move_score(pos, b);
-        });
+
+            int scoreA = move_score(pos, a);
+            int scoreB = move_score(pos, b);
+
+            // TT move gets very high priority.
+            if (a == ttMove)
+                scoreA += 20000000;
+
+            if (b == ttMove)
+                scoreB += 20000000;
+
+            return scoreA > scoreB;
+        }
+    );
+
+    // ------------------------------------------------------------
+    // Search
+    // ------------------------------------------------------------
+
+    int bestScore = -100000000;
+    Move bestMove = 0;
 
     Move childPV[128];
     int childPV_len = 0;
 
-    for (int i = 0; i < list.size; i++) {
+    for (int i = 0; i < list.size; ++i) {
+
         Move m = list.moves[i];
-        State st;
-        // --- Reverse Futility Pruning (RFP) ---
+
+        // --------------------------------------------------------
+        // Reverse Futility Pruning
+        // --------------------------------------------------------
+
         if (depth <= 4 && !is_capture(m)) {
 
-            if (eval + 150 <= alpha) {
+            if (eval + 150 <= alpha)
                 continue;
-            }
         }
 
+        State st;
+
         pos.make_move(m, st);
-        int score = -negamax(pos, depth - 1, ply + 1, -beta, -alpha, childPV, childPV_len);
+
+        int score = -negamax(
+            pos,
+            depth - 1,
+            ply + 1,
+            -beta,
+            -alpha,
+            childPV,
+            childPV_len
+        );
+
         pos.unmake_move(st);
+
+        // --------------------------------------------------------
+        // Search interrupted
+        // --------------------------------------------------------
 
         if (time_up()) {
             interrupted = true;
-            break;
+            return bestScore;
         }
 
+        // --------------------------------------------------------
+        // Best score
+        // --------------------------------------------------------
+
         if (score > bestScore) {
+
             bestScore = score;
+            bestMove = m;
 
             pv[0] = m;
-            for (int j = 0; j < childPV_len; j++)
+
+            for (int j = 0; j < childPV_len; ++j)
                 pv[j + 1] = childPV[j];
+
             pv_len = childPV_len + 1;
         }
 
+        // --------------------------------------------------------
+        // Alpha improvement
+        // --------------------------------------------------------
+
         if (score > alpha) {
+
             alpha = score;
 
             int from = from_sq(m);
@@ -228,13 +352,58 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
             history[from][to] += depth * depth;
         }
 
+        // --------------------------------------------------------
+        // Beta cutoff
+        // --------------------------------------------------------
+
         if (alpha >= beta)
             break;
     }
 
+    // ------------------------------------------------------------
+    // Don't store an incomplete search
+    // ------------------------------------------------------------
+
+    if (interrupted)
+        return bestScore;
+
+    // ------------------------------------------------------------
+    // TT bound
+    // ------------------------------------------------------------
+
+    Bound bound;
+
+    if (bestScore <= alphaOrig)
+        bound = BOUND_UPPER;
+    else if (bestScore >= beta)
+        bound = BOUND_LOWER;
+    else
+        bound = BOUND_EXACT;
+
+    // ------------------------------------------------------------
+    // TT store
+    // ------------------------------------------------------------
+
+    if (tt) {
+
+        // Replace if:
+        // 1. Different position
+        // 2. New search is at least as deep
+        // 3. Existing entry has no useful depth
+        if (tt->key != pos.hash ||
+            depth >= tt->depth ||
+            tt->bound == BOUND_NONE) {
+
+            tt->key = pos.hash;
+            tt->score = tt_score(bestScore, ply);
+            tt->depth = depth;
+            tt->bestMove = bestMove;
+            tt->bound = bound;
+        }
+    }
+
     return bestScore;
 }
-
 Move search_bestmove(Board& pos, const SearchLimits& limits) {
     stopRequested = false;
     infiniteSearch = limits.infinite;

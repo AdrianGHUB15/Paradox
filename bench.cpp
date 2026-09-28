@@ -3,9 +3,12 @@
 #include "board.h"
 #include <chrono>
 #include <iostream>
+#include "tt.h"
 extern uint64_t nodes;
 
 Move run_bench(int depth) {
+    tt_init(16);
+
     static const char* bench_fens[] = {
         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
         "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
