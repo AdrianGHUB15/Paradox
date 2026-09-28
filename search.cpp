@@ -48,7 +48,7 @@ int move_score(Board& pos, Move m, int ply) {
         Piece attacker = pos.piece_at(from_sq(m));
 
         if (victim != NO_PIECE)
-            return 3000000
+            return 30000000
             + PieceValue[victim] * 100
             - PieceValue[attacker];
 
