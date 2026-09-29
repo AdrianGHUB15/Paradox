@@ -239,6 +239,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
                 killers[ply][1] = killers[ply][0];
                 killers[ply][0] = m;
             }
+            break;
         }
     }
 
