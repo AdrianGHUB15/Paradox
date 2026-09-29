@@ -173,6 +173,19 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         pv_len = 0;
         return qsearch(pos, alpha, beta);
     }
+    // Null-move pruning
+    if (depth >= 3 && !in_check(pos, pos.stm)) {
+
+        State st;
+        pos.make_null_move(st);
+
+        int score = -negamax(pos, depth - 3, ply + 1, -beta, -beta + 1, pv, pv_len);
+
+        pos.unmake_null_move(st);
+
+        if (score >= beta)
+            return score;
+    }
 
     MoveList list;
     generate_legal(pos, list);
