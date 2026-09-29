@@ -51,13 +51,12 @@ int move_score(Board& pos, Move m, int ply) {
             return 30000000
             + PieceValue[victim] * 100
             - PieceValue[attacker];
-
-        if (m == killers[ply][0])
-            return 20000000;
-
-        if (m == killers[ply][1])
-            return 19000000;
     }
+    if (m == killers[ply][0])
+        return 20000000;
+
+    if (m == killers[ply][1])
+        return 19000000;
 
     return history[from_sq(m)][to_sq(m)];
 }
@@ -240,6 +239,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
                 killers[ply][1] = killers[ply][0];
                 killers[ply][0] = m;
             }
+            break;
         }
     }
 
