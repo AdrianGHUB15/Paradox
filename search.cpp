@@ -6,6 +6,7 @@
 #include "eval.h"
 #include "movegen.h"
 #include "search.h"
+#include "see.h"
 
 uint64_t nodes = 0;
 std::chrono::steady_clock::time_point startTime;
@@ -135,6 +136,10 @@ int qsearch(Board& pos, int alpha, int beta) {
         State st;
 
         if (!is_capture(m))
+            continue;
+
+        // SEE pruning
+        if (see(pos, m) < -50)
             continue;
 
         pos.make_move(m, st);
