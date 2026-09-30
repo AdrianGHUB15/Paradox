@@ -155,7 +155,7 @@ int qsearch(Board& pos, int alpha, int beta) {
 int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int& pv_len) {
     nodes++;
     int eval = evaluate(pos);
-
+    bool PvNode = beta - alpha > 1;
     int bestScore = -100000000;
 
     if (pos.is_repetition() && ply > 0) {
@@ -173,17 +173,26 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         return qsearch(pos, alpha, beta);
     }
 
+    bool inCheck = in_check(pos, pos.stm);
+
     MoveList list;
     generate_legal(pos, list);
 
     if (list.size == 0) {
         pv_len = 0;
-        if (in_check(pos, pos.stm))
+
+        if (inCheck)
             return -MATE + ply;
+
         return 0;
     }
 
-    bool inCheck = in_check(pos, pos.stm);
+    if (depth <= 4 && !PvNode && !inCheck && eval + 50 * depth <= alpha)
+    {
+        pv_len = 0;
+        return eval;
+    }
+
     // Stable, so that tied moves keep generation order rather than whatever
     // the standard library's introsort happens to produce. Keeps node counts
     // identical across compilers/platforms, as OpenBench requires.
@@ -199,13 +208,6 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     for (int i = 0; i < list.size; i++) {
         Move m = list.moves[i];
         State st;
-        // --- Reverse Futility Pruning (RFP) ---
-        if (depth <= 4 && !is_capture(m)) {
-
-            if (eval + 50 * depth <= alpha) {
-                continue;
-            }
-        }
 
         pos.make_move(m, st);
         int score = -negamax(pos, depth - 1, ply + 1, -beta, -alpha, childPV, childPV_len);
