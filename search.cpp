@@ -117,6 +117,7 @@ void print_info(int depth, int score, int ms, uint64_t nodes, uint64_t nps,
 };
 int qsearch(Board& pos, int alpha, int beta) {
     nodes++;
+
     int standPat = evaluate(pos);
 
     if (standPat >= beta)
@@ -132,10 +133,19 @@ int qsearch(Board& pos, int alpha, int beta) {
 
         Move m = list.moves[i];
 
-        State st;
-
         if (!is_capture(m))
             continue;
+
+        Piece victim = pos.piece_at(to_sq(m));
+
+        // Delta pruning
+        if (victim != NO_PIECE &&
+            standPat + PieceValue[victim] + 200 < alpha)
+        {
+            continue;
+        }
+
+        State st;
 
         pos.make_move(m, st);
 
