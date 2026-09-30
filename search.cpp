@@ -6,8 +6,14 @@
 #include "eval.h"
 #include "movegen.h"
 #include "search.h"
+#include "tt.h"
 
 uint64_t nodes = 0;
+uint64_t ttProbes = 0;
+uint64_t ttHits = 0;
+uint64_t ttCutoffs = 0;
+uint64_t negamaxNodes = 0;
+
 std::chrono::steady_clock::time_point startTime;
 int TIME_LIMIT_MS = 0;
 
@@ -40,7 +46,10 @@ static constexpr int PieceValue[6] = {
     20000  // king
 };
 
-int move_score(Board& pos, Move m, int ply) {
+int move_score(Board& pos, Move m, int ply, Move ttMove) {
+
+    if (m == ttMove)
+        return 100000000;
 
     if (is_capture(m)) {
 
@@ -107,6 +116,10 @@ void print_info(int depth, int score, int ms, uint64_t nodes, uint64_t nps,
         std::cout << " time " << ms
             << " nodes " << nodes
             << " nps " << nps
+            << " probes " << ttProbes
+            << " hits " << ttHits
+            << " cutoffs " << ttCutoffs
+            << " negamax nodes " << negamaxNodes
             << " pv";
 
         for (int i = 0; i < pv_len; i++)
@@ -153,7 +166,21 @@ int qsearch(Board& pos, int alpha, int beta) {
     return alpha;
 }
 int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int& pv_len) {
+    negamaxNodes++;
     nodes++;
+    int alphaOrig = alpha;
+
+    TTEntry* tte = tt_probe(pos.hash);
+
+    ttProbes++;
+
+    Move ttMove = 0;
+
+    if (tte->key == pos.hash) {
+        ttHits++;
+        ttMove = tte->bestMove;
+    }
+
     int eval = evaluate(pos);
 
     int bestScore = -100000000;
@@ -162,6 +189,30 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         pv_len = 0;
         return 0;
     }
+
+    if (tte->key == pos.hash && tte->depth >= depth) {
+
+        if (tte->bound == BOUND_EXACT) {
+            ttCutoffs++;
+            pv_len = 0;
+            return tte->score;
+        }
+
+        if (tte->bound == BOUND_LOWER &&
+            tte->score >= beta) {
+            ttCutoffs++;
+            pv_len = 0;
+            return tte->score;
+        }
+
+        if (tte->bound == BOUND_UPPER &&
+            tte->score <= alpha) {
+            ttCutoffs++;
+            pv_len = 0;
+            return tte->score;
+        }
+    }
+
     if (time_up()) {
         interrupted = true;
         return bestScore;
@@ -189,8 +240,8 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     // identical across compilers/platforms, as OpenBench requires.
     std::stable_sort(list.moves, list.moves + list.size,
         [&](Move a, Move b) {
-            return move_score(pos, a, ply)
-        > move_score(pos, b, ply);
+            return move_score(pos, a, ply, ttMove)
+        > move_score(pos, b, ply, ttMove);
         });
 
     Move childPV[128];
@@ -242,6 +293,17 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
             break;
         }
     }
+    tte->key = pos.hash;
+    tte->score = bestScore;
+    tte->depth = depth;
+    tte->bestMove = (pv_len ? pv[0] : 0);
+
+    if (bestScore <= alphaOrig)
+        tte->bound = BOUND_UPPER;
+    else if (bestScore >= beta)
+        tte->bound = BOUND_LOWER;
+    else
+        tte->bound = BOUND_EXACT;
 
     return bestScore;
 }
@@ -303,6 +365,11 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
     // Cumulative across the whole iterative deepening run, so that the
     // reported nodes/nps and the elapsed time refer to the same interval.
     nodes = 0;
+    ttProbes = 0;
+    ttHits = 0;
+    ttCutoffs = 0;
+    negamaxNodes = 0;
+
     uint64_t lastDepthNodes = 0;
 
     for (int depth = 1; depth <= (limits.depth > 0 ? limits.depth : 99); depth++) {

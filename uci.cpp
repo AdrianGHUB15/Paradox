@@ -12,7 +12,9 @@
 #include "eval.h"
 #include "search.h"
 #include <chrono>
+#include "tt.h"
 
+int HashMB = 16;
 // ------------------------------------------------------------
 // Global board
 // ------------------------------------------------------------
@@ -182,6 +184,8 @@ static void cmd_go(const std::string& line) {
 // UCI LOOP
 // ------------------------------------------------------------
 void uci_loop() {
+    tt_init(HashMB);
+
     std::string line;
 
     g_board.set_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
@@ -202,6 +206,26 @@ void uci_loop() {
         }
         else if (line == "isready") {
             std::cout << "readyok\n";
+        }
+        else if (line == "ucinewgame") {
+            tt_clear();
+        }
+        else if (line.rfind("setoption", 0) == 0) {
+
+            if (line.find("name Hash value") != std::string::npos) {
+
+                size_t pos = line.find("value");
+
+                if (pos != std::string::npos) {
+
+                    HashMB = std::stoi(line.substr(pos + 6));
+
+                    if (HashMB < 1) HashMB = 1;
+
+                    tt_init(HashMB);
+                    tt_clear();
+                }
+            }
         }
         else if (line.rfind("position", 0) == 0) {
             cmd_position(line);
