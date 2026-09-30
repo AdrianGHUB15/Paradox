@@ -117,7 +117,6 @@ void print_info(int depth, int score, int ms, uint64_t nodes, uint64_t nps,
 };
 int qsearch(Board& pos, int alpha, int beta) {
     nodes++;
-
     int standPat = evaluate(pos);
 
     if (standPat >= beta)
@@ -133,6 +132,8 @@ int qsearch(Board& pos, int alpha, int beta) {
 
         Move m = list.moves[i];
 
+        State st;
+
         if (!is_capture(m))
             continue;
 
@@ -144,8 +145,6 @@ int qsearch(Board& pos, int alpha, int beta) {
         {
             continue;
         }
-
-        State st;
 
         pos.make_move(m, st);
 
