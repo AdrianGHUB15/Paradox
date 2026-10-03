@@ -1,6 +1,7 @@
 ﻿#include <chrono>
 #include <iostream>
 #include <algorithm>
+#include <cstdio>
 
 #include "board.h"
 #include "eval.h"
@@ -77,7 +78,8 @@ bool time_up() {
     return ms >= TIME_LIMIT_MS;
 }
 
-void print_info(int depth, int score, int ms, uint64_t nodes, uint64_t nps,
+void print_info(int depth, int score, int ms,
+    uint64_t nodes, uint64_t nps,
     Move pv[], int pv_len)
 {
     auto is_mate = [&](int s) {
@@ -93,29 +95,32 @@ void print_info(int depth, int score, int ms, uint64_t nodes, uint64_t nps,
         return (plies + 1) / 2;
         };
 
+    printf("info depth %d", depth);
 
-        std::cout << "info depth " << depth;
+    if (is_mate(score)) {
+        printf(" score mate %d", score_to_mate(score));
+    }
+    else if (is_mated(score)) {
+        printf(" score mate -%d", score_to_mate(score));
+    }
+    else {
+        printf(" score cp %d", score);
+    }
 
-        if (is_mate(score)) {
-            std::cout << " score mate " << score_to_mate(score);
-        }
-        else if (is_mated(score)) {
-            std::cout << " score mate -" << score_to_mate(score);
-        }
-        else {
-            std::cout << " score cp " << score;
-        }
-        std::cout << " time " << ms
-            << " nodes " << nodes
-            << " nps " << nps
-            << " pv";
+    printf(" time %d nodes %llu nps %llu pv",
+        ms,
+        (unsigned long long)nodes,
+        (unsigned long long)nps);
 
-        for (int i = 0; i < pv_len; i++)
-            std::cout << " " << move_to_string(pv[i]);
+    for (int i = 0; i < pv_len; i++) {
+        std::string s = move_to_string(pv[i]);
+        printf(" %s", s.c_str());
+    }
 
-        std::cout << "\n";
- 
-};
+    printf("\n");
+    fflush(stdout);
+}
+
 int qsearch(Board& pos, int alpha, int beta) {
     nodes++;
     int standPat = evaluate(pos);
