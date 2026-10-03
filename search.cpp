@@ -47,7 +47,7 @@ void update_history(Move m, int depth) {
     int from = from_sq(m);
     int to = to_sq(m);
 
-    history[from][to] += depth * depth;
+    history[from][to] += depth * depth * depth;
 }
 
 int move_score(Board& pos, Move m, int ply) {
