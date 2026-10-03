@@ -43,6 +43,13 @@ static constexpr int PieceValue[6] = {
     20000  // king
 };
 
+void update_history(Move m, int depth) {
+    int from = from_sq(m);
+    int to = to_sq(m);
+
+    history[from][to] += depth * depth;
+}
+
 int move_score(Board& pos, Move m, int ply) {
 
     if (is_capture(m)) {
@@ -243,14 +250,9 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
                 pv[j + 1] = childPV[j];
             pv_len = childPV_len + 1;
         }
-
         if (score > alpha) {
             alpha = score;
-
-            int from = from_sq(m);
-            int to = to_sq(m);
-
-            history[from][to] += depth * depth;
+            update_history(m, depth);
         }
         if (alpha >= beta) {
 
