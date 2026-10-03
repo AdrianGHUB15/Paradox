@@ -19,6 +19,7 @@ static Move killers[128][2];
 bool stopRequested = false;
 bool infiniteSearch = false;
 bool interrupted = false;
+bool showCurrMove = true;
 
 int MAX_NODES = 0;
 int MAX_DEPTH = 0;
@@ -208,6 +209,14 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
 
     for (int i = 0; i < list.size; i++) {
         Move m = list.moves[i];
+        if (showCurrMove && ply == 0 && depth >= 5) {
+            std::cout << "info depth " << depth
+                << " currmove " << move_to_string(m)
+                << " currmovenumber " << (i + 1)
+                << " nodes " << nodes
+                << "\n";
+            std::cout.flush();
+        }
         State st;
         // --- Reverse Futility Pruning (RFP) ---
         if (depth <= 4 && !is_capture(m)) {
@@ -259,6 +268,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
 Move search_bestmove(Board& pos, const SearchLimits& limits) {
     stopRequested = false;
     infiniteSearch = limits.infinite;
+    showCurrMove = limits.show_currmove;
 
     bool timeManaged =
         limits.movetime > 0 ||

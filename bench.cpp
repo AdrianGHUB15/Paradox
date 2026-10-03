@@ -20,6 +20,7 @@ Move run_bench(int depth) {
     SearchLimits limits;
     limits.depth = (depth > 0 ? depth : 7);
     limits.bench_mode = false;   // disable built‑in bench summary
+    limits.show_currmove = false;
 
     uint64_t totalNodes = 0;
     auto benchStart = std::chrono::steady_clock::now();
