@@ -208,6 +208,16 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
 
     for (int i = 0; i < list.size; i++) {
         Move m = list.moves[i];
+
+        if (ply == 0 && depth >= 5) {
+            std::cout << "info depth " << depth
+                << " currmove " << move_to_string(m)
+                << " currmovenumber " << (i + 1)
+                << " nodes " << nodes
+                << "\n";
+            std::cout.flush();
+        }
+
         State st;
         // --- Reverse Futility Pruning (RFP) ---
         if (depth <= 4 && !is_capture(m)) {
