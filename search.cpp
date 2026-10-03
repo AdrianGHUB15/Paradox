@@ -43,7 +43,10 @@ static constexpr int PieceValue[6] = {
     20000  // king
 };
 
-int move_score(Board& pos, Move m, int ply) {
+int move_score(Board& pos, Move m, int ply, Move pvMove) {
+
+    if (m == pvMove)
+        return 40000000;
 
     if (is_capture(m)) {
 
@@ -55,6 +58,7 @@ int move_score(Board& pos, Move m, int ply) {
             + PieceValue[victim] * 100
             - PieceValue[attacker];
     }
+
     if (m == killers[ply][0])
         return 20000000;
 
@@ -195,14 +199,21 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     }
 
     bool inCheck = in_check(pos, pos.stm);
+
+    Move pvMove = 0;
+
+    if (ply == 0 && finalPV_len > 0)
+        pvMove = finalPV[0];
+
     // Stable, so that tied moves keep generation order rather than whatever
     // the standard library's introsort happens to produce. Keeps node counts
     // identical across compilers/platforms, as OpenBench requires.
     std::stable_sort(list.moves, list.moves + list.size,
         [&](Move a, Move b) {
-            return move_score(pos, a, ply)
-        > move_score(pos, b, ply);
+            return move_score(pos, a, ply, pvMove)
+             > move_score(pos, b, ply, pvMove);
         });
+
 
     Move childPV[128];
     int childPV_len = 0;
@@ -323,7 +334,14 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
     // Cumulative across the whole iterative deepening run, so that the
     // reported nodes/nps and the elapsed time refer to the same interval.
     nodes = 0;
+
+    finalPV_len = 0;
+    finalScore = 0;
+    currentPV_len = 0;
+    currentScore = 0;
+
     uint64_t lastDepthNodes = 0;
+
 
     for (int depth = 1; depth <= (limits.depth > 0 ? limits.depth : 99); depth++) {
         interrupted = false;
