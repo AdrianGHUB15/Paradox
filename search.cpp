@@ -309,6 +309,8 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         else
             flag = TT_EXACT;
 
+        Move bestMove = 0;
+
         if (pv_len > 0)
             bestMove = pv[0];
 
