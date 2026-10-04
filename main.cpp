@@ -1,9 +1,12 @@
 #include "uci.h"
 #include "search.h"
+#include "tt.h"
 
 int main(int argc, char** argv) {
     init_bitboards();
     zobrist_init();
+
+    tt_init(16);
 
     // "./Paradox bench [depth]" must bench and exit without touching stdin.
     for (int i = 1; i < argc; ++i) {

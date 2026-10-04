@@ -11,7 +11,7 @@
 #include "move.h"
 #include "eval.h"
 #include "search.h"
-#include <chrono>
+#include "tt.h"
 
 // ------------------------------------------------------------
 // Global board
@@ -19,8 +19,6 @@
 static Board g_board;
 extern bool stopRequested;
 extern bool infiniteSearch;
-extern int MAX_NODES;
-extern int MAX_DEPTH;
 
 void perft_break(Board& pos, int depth);
 std::uint64_t perft_divide(Board& pos, int depth);
@@ -84,6 +82,66 @@ static void apply_moves_uci(Board& pos, const std::string& movesPart) {
         pos.make_move(foundMove, st);
     }
 }
+static void cmd_setoption(const std::string& line) {
+
+    std::istringstream iss(line);
+
+    std::string word;
+    std::string name;
+    std::string value;
+
+    iss >> word; // setoption
+    iss >> word; // name
+
+    while (iss >> word) {
+
+        if (word == "value")
+            break;
+
+        if (!name.empty())
+            name += " ";
+
+        name += word;
+    }
+
+    std::getline(iss, value);
+
+    while (!value.empty() &&
+        (value[0] == ' ' || value[0] == '\t'))
+    {
+        value.erase(value.begin());
+    }
+
+    if (name == "Hash") {
+
+        int mb = std::atoi(value.c_str());
+
+        if (mb < 1)
+            mb = 1;
+
+        if (mb > 4096)
+            mb = 4096;
+
+        tt_init(mb);
+
+        std::cout
+            << "info string Hash set to "
+            << mb
+            << " MB\n";
+
+        return;
+    }
+
+    if (name == "Clear Hash") {
+
+        tt_clear();
+
+        std::cout
+            << "info string Hash cleared\n";
+
+        return;
+    }
+}
 
 // ------------------------------------------------------------
 // POSITION command
@@ -125,6 +183,8 @@ static void cmd_position(const std::string& line) {
 // GO command
 // ------------------------------------------------------------
 static void cmd_go(const std::string& line) {
+    tt_clear();
+
     SearchLimits limits;
 
     std::istringstream iss(line);
@@ -202,6 +262,9 @@ void uci_loop() {
         }
         else if (line == "isready") {
             std::cout << "readyok\n";
+        }
+        else if (line.rfind("setoption", 0) == 0) {
+            cmd_setoption(line);
         }
         else if (line.rfind("position", 0) == 0) {
             cmd_position(line);

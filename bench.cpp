@@ -3,6 +3,8 @@
 #include "board.h"
 #include <chrono>
 #include <iostream>
+#include "tt.h"
+
 extern uint64_t nodes;
 
 Move run_bench(int depth) {
@@ -28,6 +30,8 @@ Move run_bench(int depth) {
     Move lastMove = 0;
 
     for (int idx = 0; idx < num_positions; idx++) {
+        tt_clear();
+
         const char* fen = bench_fens[idx];
 
         std::cout << "position " << (idx + 1) << "/" << num_positions
