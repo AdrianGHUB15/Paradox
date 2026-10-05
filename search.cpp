@@ -8,6 +8,7 @@
 #include "movegen.h"
 #include "search.h"
 #include "see.h"
+#include "tt.h"
 
 uint64_t nodes = 0;
 std::chrono::steady_clock::time_point startTime;
@@ -15,14 +16,12 @@ int TIME_LIMIT_MS = 0;
 
 static int history[64][64];
 static Move killers[128][2];
+uint64_t NODE_LIMIT = 0;
 
 bool stopRequested = false;
 bool infiniteSearch = false;
 bool interrupted = false;
 bool showCurrMove = true;
-
-int MAX_NODES = 0;
-int MAX_DEPTH = 0;
 
 Move finalPV[128];
 int finalPV_len = 0;
@@ -75,19 +74,26 @@ bool time_up() {
     if (stopRequested)
         return true;
 
+    if (NODE_LIMIT > 0 && nodes >= NODE_LIMIT)
+        return true;
+
     if (infiniteSearch)
-        return false; // only stop ends infinite search
+        return false;
 
     if (TIME_LIMIT_MS <= 0)
         return false;
 
     auto now = std::chrono::steady_clock::now();
-    int ms = (int)std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
+
+    int ms = (int)std::chrono::duration_cast<std::chrono::milliseconds>(
+        now - startTime
+    ).count();
+
     return ms >= TIME_LIMIT_MS;
 }
 
 void print_info(int depth, int score, int ms,
-    uint64_t nodes, uint64_t nps,
+    uint64_t nodes, uint64_t nps, uint64_t hashfull,
     Move pv[], int pv_len)
 {
     auto is_mate = [&](int s) {
@@ -115,10 +121,11 @@ void print_info(int depth, int score, int ms,
         printf(" score cp %d", score);
     }
 
-    printf(" time %d nodes %llu nps %llu pv",
+    printf(" time %d nodes %llu nps %llu hashfull %llu pv",
         ms,
         (unsigned long long)nodes,
-        (unsigned long long)nps);
+        (unsigned long long)nps,
+        (unsigned long long)hashfull);
 
     for (int i = 0; i < pv_len; i++) {
         std::string s = move_to_string(pv[i]);
@@ -131,6 +138,10 @@ void print_info(int depth, int score, int ms,
 
 int qsearch(Board& pos, int alpha, int beta) {
     nodes++;
+    if (time_up()) {
+        interrupted = true;
+        return 0;
+    }
     int standPat = evaluate(pos);
 
     if (standPat >= beta)
@@ -172,24 +183,33 @@ int qsearch(Board& pos, int alpha, int beta) {
 }
 int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int& pv_len) {
     nodes++;
+
+    int originalAlpha = alpha;
+
+    pv_len = 0;
+
+    if (pos.is_repetition() && ply > 0)
+        return 0;
+
+    if (time_up()) {
+        interrupted = true;
+        return 0;
+    }
+
+    if (depth == 0)
+        return qsearch(pos, alpha, beta);
+
+    Move ttMove = 0;
+    int ttScore = 0;
+
+    if (tt_probe(pos.hash, depth, alpha, beta, ttScore, ttMove)) {
+        if (ply != 0)
+            return ttScore;
+    }
+
     int eval = evaluate(pos);
 
     int bestScore = -100000000;
-
-    if (pos.is_repetition() && ply > 0) {
-        pv_len = 0;
-        return 0;
-    }
-    if (time_up()) {
-        interrupted = true;
-        return bestScore;
-    }
-
-
-    if (depth == 0) {
-        pv_len = 0;
-        return qsearch(pos, alpha, beta);
-    }
 
     MoveList list;
     generate_legal(pos, list);
@@ -200,15 +220,30 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
             return -MATE + ply;
         return 0;
     }
+    if (ttMove != 0) {
 
-    bool inCheck = in_check(pos, pos.stm);
+        for (int i = 0; i < list.size; ++i) {
+
+            if (list.moves[i] == ttMove) {
+
+                std::swap(list.moves[0], list.moves[i]);
+                break;
+            }
+        }
+    }
     // Stable, so that tied moves keep generation order rather than whatever
     // the standard library's introsort happens to produce. Keeps node counts
     // identical across compilers/platforms, as OpenBench requires.
-    std::stable_sort(list.moves, list.moves + list.size,
+    int sortStart = 0;
+
+    if (ttMove != 0 && list.size > 0 && list.moves[0] == ttMove)
+        sortStart = 1;
+
+    std::stable_sort(list.moves + sortStart,
+        list.moves + list.size,
         [&](Move a, Move b) {
             return move_score(pos, a, ply)
-        > move_score(pos, b, ply);
+                         > move_score(pos, b, ply);
         });
 
     Move childPV[128];
@@ -216,7 +251,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
 
     for (int i = 0; i < list.size; i++) {
         Move m = list.moves[i];
-        if (showCurrMove && ply == 0 && depth >= 5) {
+        if (showCurrMove && ply == 0 && depth >= 9) {
             std::cout << "info depth " << depth
                 << " currmove " << move_to_string(m)
                 << " currmovenumber " << (i + 1)
@@ -263,14 +298,46 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
             break;
         }
     }
+    if (!interrupted && bestScore != -100000000) {
+
+        TTFlag flag;
+
+        if (bestScore <= originalAlpha)
+            flag = TT_ALPHA;
+        else if (bestScore >= beta)
+            flag = TT_BETA;
+        else
+            flag = TT_EXACT;
+
+        Move bestMove = 0;
+
+        if (pv_len > 0)
+            bestMove = pv[0];
+
+        tt_store(pos.hash,
+            depth,
+            bestScore,
+            flag,
+            bestMove);
+    }
 
     return bestScore;
+
 }
 
 Move search_bestmove(Board& pos, const SearchLimits& limits) {
     stopRequested = false;
     infiniteSearch = limits.infinite;
     showCurrMove = limits.show_currmove;
+
+    finalPV_len = 0;
+    finalScore = 0;
+
+    currentPV_len = 0;
+    currentScore = 0;
+
+    std::memset(finalPV, 0, sizeof(finalPV));
+    std::memset(currentPV, 0, sizeof(currentPV));
 
     bool timeManaged =
         limits.movetime > 0 ||
@@ -325,7 +392,10 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
     // Cumulative across the whole iterative deepening run, so that the
     // reported nodes/nps and the elapsed time refer to the same interval.
     nodes = 0;
+    NODE_LIMIT = limits.nodes;
+
     uint64_t lastDepthNodes = 0;
+
 
     for (int depth = 1; depth <= (limits.depth > 0 ? limits.depth : 99); depth++) {
         interrupted = false;
@@ -389,11 +459,11 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
             for (int i = 0; i < pv_len; i++)
                 finalPV[i] = pv[i];
 
-            print_info(depth, score, ms, nodes, nps, pv, pv_len);
+            print_info(depth, score, ms, nodes, nps, tt_hashfull(), pv, pv_len);
             continue;
         }
 
-        if (interrupted && timeManaged) {
+        if (interrupted && (timeManaged || limits.nodes > 0)) {
 
             // 1. Print interruption message
             std::cout << "info string search finished before depth "
@@ -402,11 +472,11 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
 
             // 2. Print depth D only if it has a PV
             if (currentPV_len > 0)
-                print_info(depth, currentScore, ms, nodes, nps,
+                print_info(depth, currentScore, ms, nodes, nps, tt_hashfull(),
                     currentPV, currentPV_len);
 
             // 3. Print depth D-1 full info
-            print_info(depth - 1, finalScore, ms, nodes, nps,
+            print_info(depth - 1, finalScore, ms, nodes, nps, tt_hashfull(),
                 finalPV, finalPV_len);
 
             // 4. Return best move from last completed depth
