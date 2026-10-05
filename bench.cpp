@@ -20,7 +20,7 @@ Move run_bench(int depth) {
     const int num_positions = 6;
 
     SearchLimits limits;
-    limits.depth = (depth > 0 ? depth : 7);
+    limits.depth = (depth > 0 ? depth : 8);
     limits.bench_mode = false;   // disable built‑in bench summary
     limits.show_currmove = false;
 
