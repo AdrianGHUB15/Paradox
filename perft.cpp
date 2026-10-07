@@ -177,7 +177,8 @@ std::uint64_t perft_divide(Board& pos, int depth) {
 // ------------------------------------------------------------
 
 void perft_break(Board& pos, int depth) {
-    RefMoveList ref = load_reference_for_depth(pos, depth);
+    RefMoveList ref =
+        load_reference_for_depth(board_to_fen(pos), depth);
 
     if (ref.empty()) {
         std::printf("No reference table for this position/depth.\n");
@@ -251,5 +252,234 @@ void perft_break(Board& pos, int depth) {
         (unsigned long long)total_engine,
         total_ms,
         total_nps);
+}
+// ------------------------------------------------------------
+// FULL PERFT SUITE
+// ------------------------------------------------------------
+
+struct PerftSuiteTest {
+    const char* name;
+    const char* fen;
+    int maxDepth;
+};
+
+void run_perft_suite()
+{
+    const PerftSuiteTest tests[] = {
+        { "STARTPOS", FEN_STARTPOS, 6 },
+        { "FEN1",     FEN_1,        5 },
+        { "FEN2",     FEN_2,        6 },
+        { "FEN3",     FEN_3,        6 },
+        { "FEN4",     FEN_4,        6 },
+        { "FEN5",     FEN_5,        6 }
+    };
+
+    int passed = 0;
+    int failed = 0;
+
+    std::printf("\n");
+    std::printf("============================================================\n");
+    std::printf("                 PARADOX PERFT SUITE\n");
+    std::printf("============================================================\n");
+
+    for (const auto& test : tests)
+    {
+        std::printf("\n[%s]\n", test.name);
+        std::printf("FEN: %s\n", test.fen);
+
+        for (int depth = 1; depth <= test.maxDepth; ++depth)
+        {
+            RefMoveList ref =
+                load_reference_for_depth(test.fen, depth);
+
+            if (ref.empty())
+            {
+                std::printf(
+                    "  D%d: NO REFERENCE\n",
+                    depth
+                );
+
+                ++failed;
+                continue;
+            }
+
+            Board pos;
+            pos.set_fen(test.fen);
+
+            MoveList list;
+            generate_legal(pos, list);
+
+            std::unordered_map<std::string, std::uint64_t> refMap;
+
+            for (const auto& r : ref)
+                refMap[r.moveStr] = r.nodes;
+
+            std::uint64_t engineTotal = 0;
+            std::uint64_t referenceTotal = 0;
+
+            bool depthPassed = true;
+
+            auto start =
+                std::chrono::high_resolution_clock::now();
+
+            // ------------------------------------------------
+            // Compare every legal root move
+            // ------------------------------------------------
+
+            for (int i = 0; i < list.size; ++i)
+            {
+                Move m = list.moves[i];
+                std::string moveStr = move_to_string(m);
+
+                State st;
+
+                pos.make_move(m, st);
+
+                std::uint64_t nodes =
+                    perft(pos, depth - 1);
+
+                pos.unmake_move(st);
+
+                engineTotal += nodes;
+
+                auto it = refMap.find(moveStr);
+
+                if (it == refMap.end())
+                {
+                    std::printf(
+                        "  D%d FAIL: unexpected move %s "
+                        "(engine=%llu)\n",
+                        depth,
+                        moveStr.c_str(),
+                        (unsigned long long)nodes
+                    );
+
+                    depthPassed = false;
+                    continue;
+                }
+
+                std::uint64_t expected = it->second;
+
+                referenceTotal += expected;
+
+                if (nodes != expected)
+                {
+                    std::printf(
+                        "  D%d FAIL: %s "
+                        "expected=%llu "
+                        "actual=%llu\n",
+                        depth,
+                        moveStr.c_str(),
+                        (unsigned long long)expected,
+                        (unsigned long long)nodes
+                    );
+
+                    depthPassed = false;
+                }
+            }
+
+            // ------------------------------------------------
+            // Detect reference moves missing from engine
+            // ------------------------------------------------
+
+            for (const auto& r : ref)
+            {
+                bool found = false;
+
+                for (int i = 0; i < list.size; ++i)
+                {
+                    if (move_to_string(list.moves[i]) == r.moveStr)
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (!found)
+                {
+                    std::printf(
+                        "  D%d FAIL: missing move %s "
+                        "(expected=%llu)\n",
+                        depth,
+                        r.moveStr.c_str(),
+                        (unsigned long long)r.nodes
+                    );
+
+                    depthPassed = false;
+                    referenceTotal += r.nodes;
+                }
+            }
+
+            auto end =
+                std::chrono::high_resolution_clock::now();
+
+            double ms =
+                std::chrono::duration<double, std::milli>(
+                    end - start
+                ).count();
+
+            double nps =
+                ms > 0.0
+                ? (engineTotal * 1000.0) / ms
+                : 0.0;
+
+            // ------------------------------------------------
+            // Final result for this depth
+            // ------------------------------------------------
+
+            if (depthPassed &&
+                engineTotal == referenceTotal)
+            {
+                std::printf(
+                    "  D%d PASS: %llu nodes "
+                    "(%.3f ms, %.2f nps)\n",
+                    depth,
+                    (unsigned long long)engineTotal,
+                    ms,
+                    nps
+                );
+
+                ++passed;
+            }
+            else
+            {
+                std::printf(
+                    "  D%d FAIL: "
+                    "reference=%llu "
+                    "engine=%llu "
+                    "(%.3f ms, %.2f nps)\n",
+                    depth,
+                    (unsigned long long)referenceTotal,
+                    (unsigned long long)engineTotal,
+                    ms,
+                    nps
+                );
+
+                ++failed;
+            }
+        }
+    }
+
+    // --------------------------------------------------------
+    // Final summary
+    // --------------------------------------------------------
+
+    std::printf("\n");
+    std::printf("============================================================\n");
+
+    if (failed == 0)
+        std::printf("PERFT SUITE: PASS\n");
+    else
+        std::printf("PERFT SUITE: FAIL\n");
+
+    std::printf(
+        "Tests: %d  Passed: %d  Failed: %d\n",
+        passed + failed,
+        passed,
+        failed
+    );
+
+    std::printf("============================================================\n");
+    std::fflush(stdout);
 }
 
