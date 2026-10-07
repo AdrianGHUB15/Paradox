@@ -9,6 +9,7 @@ struct State {
     uint8_t   castling;
     int       epSquare;
     int       halfmoveClock;
+    int       fullmoveNumber;
     int       kingSq[2];
     Bitboard  pieceBB[2][6];
     Bitboard  colorBB[2];
@@ -123,6 +124,7 @@ inline bool Board::make_move(Move m, State& st) {
     st.castling = castling;
     st.epSquare = epSquare;
     st.halfmoveClock = halfmoveClock;
+    st.fullmoveNumber = fullmoveNumber;
     st.kingSq[WHITE] = kingSq[WHITE];
     st.kingSq[BLACK] = kingSq[BLACK];
     std::memcpy(st.pieceBB, pieceBB, sizeof(pieceBB));
@@ -310,12 +312,23 @@ inline bool Board::make_move(Move m, State& st) {
     hash ^= Z_CASTLE[st.castling];
     hash ^= Z_CASTLE[castling];
 
+    // Halfmove clock
+    if (pc == PAWN || flag == FLAG_CAPTURE || flag == FLAG_ENPASSANT)
+        halfmoveClock = 0;
+    else
+        ++halfmoveClock;
+
+    // Fullmove number increments after Black's move
+    if (us == BLACK)
+        ++fullmoveNumber;
+
     // Side to move
     stm = them;
     hash ^= Z_STM;
 
     // repetition push
-    repHistory[repLen++] = hash;
+    if (repLen < 1024)
+        repHistory[repLen++] = hash;
 
     return true;
 }
@@ -327,6 +340,7 @@ inline void Board::unmake_move(const State& st) {
     castling = st.castling;
     epSquare = st.epSquare;
     halfmoveClock = st.halfmoveClock;
+    fullmoveNumber = st.fullmoveNumber;
     kingSq[WHITE] = st.kingSq[WHITE];
     kingSq[BLACK] = st.kingSq[BLACK];
     std::memcpy(pieceBB, st.pieceBB, sizeof(pieceBB));
@@ -387,6 +401,7 @@ inline void Board::make_null_move(State& st) {
     st.castling = castling;
     st.epSquare = epSquare;
     st.halfmoveClock = halfmoveClock;
+    st.fullmoveNumber = fullmoveNumber;
     st.kingSq[WHITE] = kingSq[WHITE];
     st.kingSq[BLACK] = kingSq[BLACK];
     std::memcpy(st.pieceBB, pieceBB, sizeof(pieceBB));
@@ -412,6 +427,7 @@ inline void Board::unmake_null_move(const State& st) {
     castling = st.castling;
     epSquare = st.epSquare;
     halfmoveClock = st.halfmoveClock;
+    fullmoveNumber = st.fullmoveNumber;
     kingSq[WHITE] = st.kingSq[WHITE];
     kingSq[BLACK] = st.kingSq[BLACK];
     std::memcpy(pieceBB, st.pieceBB, sizeof(pieceBB));

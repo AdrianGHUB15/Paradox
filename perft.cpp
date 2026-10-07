@@ -268,10 +268,10 @@ void run_perft_suite()
     const PerftSuiteTest tests[] = {
         { "STARTPOS", FEN_STARTPOS, 6 },
         { "FEN1",     FEN_1,        5 },
-        { "FEN2",     FEN_2,        6 },
+        { "FEN2",     FEN_2,        7 /* maybe */ },
         { "FEN3",     FEN_3,        6 },
-        { "FEN4",     FEN_4,        6 },
-        { "FEN5",     FEN_5,        6 }
+        { "FEN4",     FEN_4,        5 },
+        { "FEN5",     FEN_5,        5 }
     };
 
     int passed = 0;

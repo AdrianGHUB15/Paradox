@@ -1,4 +1,5 @@
 #include "movegen.h"
+#include <cstdlib>
 
 // Helpers
 static inline int file_of(int sq) { return sq & 7; }
@@ -312,100 +313,181 @@ static void compute_pins_and_checkmask(
     Color them = Color(us ^ 1);
     int ksq = pos.kingSq[us];
 
-    Bitboard occ = pos.occupiedBB;
-    Bitboard usBB = pos.colorBB[us];
-    Bitboard themBB = pos.colorBB[them];
-
     pinned = 0;
     checkmask = ~0ULL;
     inCheck = false;
     doubleCheck = false;
 
+    for (int i = 0; i < 64; ++i)
+        pinRay[i] = 0;
+
     Bitboard checkers = 0;
-    bool slidingChecker = false;
 
-    // Pawn checks
-    Bitboard enemyPawns = pos.pieceBB[them][PAWN];
-    Bitboard pawnAtk = PAWN_ATTACKS[them ^ 1][ksq];
-    Bitboard pawnChk = pawnAtk & enemyPawns;
-    if (pawnChk)
-        checkers |= pawnChk;
+    // Non-sliding checkers.
+    checkers |= PAWN_ATTACKS[them ^ 1][ksq]
+        & pos.pieceBB[them][PAWN];
 
-    // Knight checks
-    Bitboard enemyKnights = pos.pieceBB[them][KNIGHT];
-    Bitboard knightChk = KNIGHT_ATTACKS[ksq] & enemyKnights;
-    if (knightChk)
-        checkers |= knightChk;
+    checkers |= KNIGHT_ATTACKS[ksq]
+        & pos.pieceBB[them][KNIGHT];
 
-    // King adjacency
-    Bitboard enemyKing = pos.pieceBB[them][KING];
-    Bitboard kingChk = KING_ATTACKS[ksq] & enemyKing;
-    if (kingChk)
-        checkers |= kingChk;
+    checkers |= KING_ATTACKS[ksq]
+        & pos.pieceBB[them][KING];
 
-    // Sliding checks + pins
+    static const int dirs[8] = {
+         8, -8,
+         1, -1,
+         9,  7,
+        -7, -9
+    };
+
     for (int d = 0; d < 8; ++d) {
-        int dir = DIRS_ALL[d];
-        int sq = ksq + dir;
 
-        Bitboard rayMask = 0;
+        int dir = dirs[d];
+        bool diagonal = (d >= 4);
+
+        int sq = ksq;
         int firstFriend = -1;
 
-        while (on_board(sq)) {
-            int fDiff = file_of(sq) - file_of(sq - dir);
-            if (fDiff > 1 || fDiff < -1) break;
+        Bitboard ray = 0;
+
+        while (true) {
+
+            int next = sq + dir;
+
+            if (next < 0 || next >= 64)
+                break;
+
+            int df = file_of(next) - file_of(sq);
+
+            // Vertical.
+            if (dir == 8 || dir == -8) {
+                if (df != 0)
+                    break;
+            }
+            // Horizontal / diagonal.
+            else {
+                if (std::abs(df) != 1)
+                    break;
+            }
+
+            sq = next;
 
             Bitboard bb = 1ULL << sq;
 
-            if (usBB & bb) {
-                if (firstFriend != -1) break;
+            if (pos.colorBB[us] & bb) {
+
+                if (firstFriend != -1)
+                    break;
+
                 firstFriend = sq;
+                ray |= bb;
+                continue;
             }
-            else if (themBB & bb) {
+
+            if (pos.colorBB[them] & bb) {
+
                 Piece p = pos.piece_at(sq);
-                bool diagDir = (d >= 4);
-                bool orthoDir = (d < 4);
 
-                bool slider =
-                    (diagDir && (p == BISHOP || p == QUEEN)) ||
-                    (orthoDir && (p == ROOK || p == QUEEN));
+                bool slider;
 
-                if (!slider) break;
+                if (diagonal)
+                    slider = (p == BISHOP || p == QUEEN);
+                else
+                    slider = (p == ROOK || p == QUEEN);
+
+                if (!slider)
+                    break;
 
                 if (firstFriend == -1) {
+                    // Direct check.
                     checkers |= bb;
-                    checkmask &= (rayMask | bb);
-                    slidingChecker = true;
                 }
                 else {
-                    pinned |= (1ULL << firstFriend);
-                    pinRay[firstFriend] = (rayMask | bb);
+                    // One friendly piece shields the king.
+                    // Therefore it is pinned.
+                    pinned |= 1ULL << firstFriend;
+
+                    // Legal destinations for the pinned piece
+                    // are on this line.
+                    pinRay[firstFriend] = ray | bb;
                 }
+
                 break;
             }
 
-            rayMask |= bb;
-            sq += dir;
+            // Empty square.
+            ray |= bb;
         }
     }
 
-    if (checkers) {
-        inCheck = true;
+    if (!checkers)
+        return;
 
-        Bitboard tmp = checkers;
-        int cnt = 0;
-        while (tmp) {
-            pop_lsb(tmp);
-            ++cnt;
+    inCheck = true;
+
+    int count = popcount(checkers);
+
+    if (count >= 2) {
+        doubleCheck = true;
+        return;
+    }
+
+    // Exactly one checker.
+    int checkerSq = lsb(checkers);
+
+    // Pawn/knight/king: must capture checker.
+    Piece checker = pos.piece_at(checkerSq);
+
+    if (checker == PAWN ||
+        checker == KNIGHT ||
+        checker == KING)
+    {
+        checkmask = 1ULL << checkerSq;
+        return;
+    }
+
+    // Sliding checker.
+    //
+    // Find the ray from king to checker.
+    for (int d = 0; d < 8; ++d) {
+
+        int dir = dirs[d];
+        bool diagonal = (d >= 4);
+
+        int sq = ksq;
+        Bitboard ray = 0;
+
+        while (true) {
+
+            int next = sq + dir;
+
+            if (next < 0 || next >= 64)
+                break;
+
+            int df = file_of(next) - file_of(sq);
+
+            if (dir == 8 || dir == -8) {
+                if (df != 0)
+                    break;
+            }
+            else {
+                if (std::abs(df) != 1)
+                    break;
+            }
+
+            sq = next;
+            ray |= 1ULL << sq;
+
+            if (sq == checkerSq) {
+                checkmask = ray;
+                return;
+            }
+
+            if (pos.occupiedBB & (1ULL << sq))
+                break;
         }
-        if (cnt > 1)
-            doubleCheck = true;
-
-        if (!slidingChecker)
-            checkmask &= checkers;
     }
 }
-
 // --------------------------------------------------------
 // Legal move generation
 // --------------------------------------------------------
@@ -429,6 +511,7 @@ void generate_legal(Board& pos, MoveList& list) {
 
     for (int i = 0; i < pseudo.size; ++i) {
         Move m = pseudo.moves[i];
+
         int from = from_sq(m);
         int to = to_sq(m);
         int flags = flags_of(m);
@@ -446,15 +529,26 @@ void generate_legal(Board& pos, MoveList& list) {
         if (pc == KING) {
             if (flags == FLAG_CASTLING) {
                 int mid = (to + ksq) / 2;
-                if (pos.square_attacked(ksq, them)) continue;
-                if (pos.square_attacked(mid, them)) continue;
-                if (pos.square_attacked(to, them))  continue;
+
+                if (pos.square_attacked(ksq, them))
+                    continue;
+
+                if (pos.square_attacked(mid, them))
+                    continue;
+
+                if (pos.square_attacked(to, them))
+                    continue;
             }
             else {
                 State st;
-                pos.make_move(m, st);
+
+                if (!pos.make_move(m, st))
+                    continue;
+
                 bool illegal = in_check(pos, us);
+
                 pos.unmake_move(st);
+
                 if (illegal)
                     continue;
             }
@@ -463,30 +557,46 @@ void generate_legal(Board& pos, MoveList& list) {
             continue;
         }
 
-        // If in check: non-king moves must land in checkmask
+        // ----------------------------------------
+        // EN PASSANT
+        //
+        // Do this BEFORE checkmask/pin tests.
+        // EP changes three squares:
+        //
+        //   from  -> to
+        //   captured pawn disappears
+        //
+        // Therefore ordinary pin/checkmask geometry
+        // is not sufficient.
+        // ----------------------------------------
+        if (flags == FLAG_ENPASSANT) {
+            State st;
+
+            if (!pos.make_move(m, st))
+                continue;
+
+            bool illegal = in_check(pos, us);
+
+            pos.unmake_move(st);
+
+            if (illegal)
+                continue;
+
+            list.moves[list.size++] = m;
+            continue;
+        }
+
+        // If in check, non-king moves must resolve the check.
         if (inCheck && !(toBB & checkmask))
             continue;
 
-        // Pinned piece: must stay on pin ray
+        // Pinned piece
         if (pinned & fromBB) {
             if (!(toBB & pinRay[from]))
                 continue;
         }
 
-        // En passant: special case — can expose rook/bishop check
-        if (flags == FLAG_ENPASSANT) {
-            State st;
-            pos.make_move(m, st);
-            if (in_check(pos, us)) {
-                pos.unmake_move(st);
-                continue;
-            }
-            pos.unmake_move(st);
-            list.moves[list.size++] = m;
-            continue;
-        }
-
-        // All other moves are legal
+        // Normal move
         list.moves[list.size++] = m;
     }
 }
