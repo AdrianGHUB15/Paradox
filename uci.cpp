@@ -23,7 +23,9 @@ extern bool infiniteSearch;
 void perft_break(Board& pos, int depth);
 std::uint64_t perft_divide(Board& pos, int depth);
 
-void run_perft_suite();
+void run_perft_suite_fast();
+void run_perft_suite_long();
+void run_perft_suite_very_long();
 // ------------------------------------------------------------
 // Helpers
 // ------------------------------------------------------------
@@ -268,8 +270,16 @@ void uci_loop() {
         else if (line.rfind("setoption", 0) == 0) {
             cmd_setoption(line);
         }
-        else if (line == "perftsuite") {
-            run_perft_suite();
+        else if (line == "perftsuite fast") {
+            run_perft_suite_fast();
+            std::cout.flush();
+        }
+        else if (line == "perftsuite long") {
+            run_perft_suite_long();
+            std::cout.flush();
+        }
+        else if (line == "perftsuite very long") {
+            run_perft_suite_very_long();
             std::cout.flush();
         }
         else if (line.rfind("position", 0) == 0) {
