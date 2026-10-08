@@ -49,7 +49,10 @@ void update_history(Move m, int depth) {
     history[from][to] += depth * depth;
 }
 
-int move_score(Board& pos, Move m, int ply) {
+int move_score(Board& pos, Move m, int ply, Move ttMove) {
+
+    if (m == ttMove)
+        return 40000000;
 
     if (is_capture(m)) {
 
@@ -220,30 +223,13 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
             return -MATE + ply;
         return 0;
     }
-    if (ttMove != 0) {
-
-        for (int i = 0; i < list.size; ++i) {
-
-            if (list.moves[i] == ttMove) {
-
-                std::swap(list.moves[0], list.moves[i]);
-                break;
-            }
-        }
-    }
     // Stable, so that tied moves keep generation order rather than whatever
     // the standard library's introsort happens to produce. Keeps node counts
     // identical across compilers/platforms, as OpenBench requires.
-    int sortStart = 0;
-
-    if (ttMove != 0 && list.size > 0 && list.moves[0] == ttMove)
-        sortStart = 1;
-
-    std::stable_sort(list.moves + sortStart,
-        list.moves + list.size,
+    std::stable_sort(list.moves, list.moves + list.size,
         [&](Move a, Move b) {
-            return move_score(pos, a, ply)
-                         > move_score(pos, b, ply);
+            return move_score(pos, a, ply, ttMove)
+                >  move_score(pos, b, ply, ttMove);
         });
 
     Move childPV[128];
