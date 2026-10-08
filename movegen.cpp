@@ -429,6 +429,7 @@ void generate_legal(Board& pos, MoveList& list) {
 
     for (int i = 0; i < pseudo.size; ++i) {
         Move m = pseudo.moves[i];
+
         int from = from_sq(m);
         int to = to_sq(m);
         int flags = flags_of(m);
@@ -446,15 +447,26 @@ void generate_legal(Board& pos, MoveList& list) {
         if (pc == KING) {
             if (flags == FLAG_CASTLING) {
                 int mid = (to + ksq) / 2;
-                if (pos.square_attacked(ksq, them)) continue;
-                if (pos.square_attacked(mid, them)) continue;
-                if (pos.square_attacked(to, them))  continue;
+
+                if (pos.square_attacked(ksq, them))
+                    continue;
+
+                if (pos.square_attacked(mid, them))
+                    continue;
+
+                if (pos.square_attacked(to, them))
+                    continue;
             }
             else {
                 State st;
-                pos.make_move(m, st);
+
+                if (!pos.make_move(m, st))
+                    continue;
+
                 bool illegal = in_check(pos, us);
+
                 pos.unmake_move(st);
+
                 if (illegal)
                     continue;
             }
@@ -463,30 +475,46 @@ void generate_legal(Board& pos, MoveList& list) {
             continue;
         }
 
-        // If in check: non-king moves must land in checkmask
+        // ----------------------------------------
+        // EN PASSANT
+        //
+        // Do this BEFORE checkmask/pin tests.
+        // EP changes three squares:
+        //
+        //   from  -> to
+        //   captured pawn disappears
+        //
+        // Therefore ordinary pin/checkmask geometry
+        // is not sufficient.
+        // ----------------------------------------
+        if (flags == FLAG_ENPASSANT) {
+            State st;
+
+            if (!pos.make_move(m, st))
+                continue;
+
+            bool illegal = in_check(pos, us);
+
+            pos.unmake_move(st);
+
+            if (illegal)
+                continue;
+
+            list.moves[list.size++] = m;
+            continue;
+        }
+
+        // If in check, non-king moves must resolve the check.
         if (inCheck && !(toBB & checkmask))
             continue;
 
-        // Pinned piece: must stay on pin ray
+        // Pinned piece
         if (pinned & fromBB) {
             if (!(toBB & pinRay[from]))
                 continue;
         }
 
-        // En passant: special case — can expose rook/bishop check
-        if (flags == FLAG_ENPASSANT) {
-            State st;
-            pos.make_move(m, st);
-            if (in_check(pos, us)) {
-                pos.unmake_move(st);
-                continue;
-            }
-            pos.unmake_move(st);
-            list.moves[list.size++] = m;
-            continue;
-        }
-
-        // All other moves are legal
+        // Normal move
         list.moves[list.size++] = m;
     }
 }

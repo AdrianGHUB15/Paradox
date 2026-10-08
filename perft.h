@@ -9,4 +9,7 @@ std::uint64_t perft_divide(Board& pos, int depth);
 // Reference-based debugging
 void perft_break(Board& pos, int depth);
 
-void run_perft_suite();
+// Perft suites
+void run_perft_suite_fast();
+void run_perft_suite_long();
+void run_perft_suite_very_long();

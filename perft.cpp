@@ -257,33 +257,38 @@ void perft_break(Board& pos, int depth) {
 // FULL PERFT SUITE
 // ------------------------------------------------------------
 
-struct PerftSuiteTest {
+struct PerftSuiteTest
+{
     const char* name;
     const char* fen;
     int maxDepth;
 };
 
-void run_perft_suite()
+struct PerftSuiteConfig
 {
-    const PerftSuiteTest tests[] = {
-        { "STARTPOS", FEN_STARTPOS, 6 },
-        { "FEN1",     FEN_1,        5 },
-        { "FEN2",     FEN_2,        6 },
-        { "FEN3",     FEN_3,        6 },
-        { "FEN4",     FEN_4,        6 },
-        { "FEN5",     FEN_5,        6 }
-    };
+    const char* name;
+    const PerftSuiteTest* tests;
+    int testCount;
+};
 
+// ------------------------------------------------------------
+// Generic suite runner
+// ------------------------------------------------------------
+
+static void run_perft_suite(const PerftSuiteConfig& config)
+{
     int passed = 0;
     int failed = 0;
 
     std::printf("\n");
     std::printf("============================================================\n");
-    std::printf("                 PARADOX PERFT SUITE\n");
+    std::printf("                 PARADOX PERFT SUITE %s\n", config.name);
     std::printf("============================================================\n");
 
-    for (const auto& test : tests)
+    for (int t = 0; t < config.testCount; ++t)
     {
+        const auto& test = config.tests[t];
+
         std::printf("\n[%s]\n", test.name);
         std::printf("FEN: %s\n", test.fen);
 
@@ -424,7 +429,7 @@ void run_perft_suite()
                 : 0.0;
 
             // ------------------------------------------------
-            // Final result for this depth
+            // Final result
             // ------------------------------------------------
 
             if (depthPassed &&
@@ -483,3 +488,68 @@ void run_perft_suite()
     std::fflush(stdout);
 }
 
+// ------------------------------------------------------------
+// FAST
+// ------------------------------------------------------------
+
+void run_perft_suite_fast()
+{
+    static const PerftSuiteTest tests[] = {
+        { "STARTPOS", FEN_STARTPOS, 5 },
+        { "FEN1",     FEN_1,        4 },
+        { "FEN2",     FEN_2,        6 },
+        { "FEN3",     FEN_3,        5 },
+        { "FEN4",     FEN_4,        4 },
+        { "FEN5",     FEN_5,        4 }
+    };
+
+    run_perft_suite({
+        "FAST",
+        tests,
+        sizeof(tests) / sizeof(tests[0])
+        });
+}
+
+// ------------------------------------------------------------
+// LONG
+// ------------------------------------------------------------
+
+void run_perft_suite_long()
+{
+    static const PerftSuiteTest tests[] = {
+        { "STARTPOS", FEN_STARTPOS, 6 },
+        { "FEN1",     FEN_1,        5 },
+        { "FEN2",     FEN_2,        7 },
+        { "FEN3",     FEN_3,        6 },
+        { "FEN4",     FEN_4,        5 },
+        { "FEN5",     FEN_5,        5 }
+    };
+
+    run_perft_suite({
+        "LONG",
+        tests,
+        sizeof(tests) / sizeof(tests[0])
+        });
+}
+
+// ------------------------------------------------------------
+// VERY LONG
+// ------------------------------------------------------------
+
+void run_perft_suite_very_long()
+{
+    static const PerftSuiteTest tests[] = {
+        { "STARTPOS", FEN_STARTPOS, 7 },
+        { "FEN1",     FEN_1,        6 },
+        { "FEN2",     FEN_2,        8 },
+        { "FEN3",     FEN_3,        7 },
+        { "FEN4",     FEN_4,        6 },
+        { "FEN5",     FEN_5,        6 }
+    };
+
+    run_perft_suite({
+        "VERY LONG",
+        tests,
+        sizeof(tests) / sizeof(tests[0])
+        });
+}
