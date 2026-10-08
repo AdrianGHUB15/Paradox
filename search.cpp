@@ -231,6 +231,11 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
             }
         }
     }
+    // Bools
+    
+    bool InCheck = in_check(pos, pos.stm);
+    bool IsCapture = is_capture(m);
+
     // Stable, so that tied moves keep generation order rather than whatever
     // the standard library's introsort happens to produce. Keeps node counts
     // identical across compilers/platforms, as OpenBench requires.
@@ -261,7 +266,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         }
         State st;
         // --- Reverse Futility Pruning (RFP) ---
-        if (depth <= 4 && !is_capture(m)) {
+        if (depth <= 4 && !IsCapture) {
 
             if (eval + 50 * depth <= alpha) {
                 continue;
@@ -269,7 +274,15 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         }
 
         pos.make_move(m, st);
-        int score = -negamax(pos, depth - 1, ply + 1, -beta, -alpha, childPV, childPV_len);
+
+        // Calculate extensions
+        int extensions = 0;
+
+        if (InCheck)
+            extensions++;
+
+        int score = -negamax(pos, depth - 1 + extensions, ply + 1, -beta, -alpha, childPV, childPV_len);
+
         pos.unmake_move(st);
 
         if (time_up()) {
