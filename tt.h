@@ -24,6 +24,7 @@ void tt_clear();
 
 bool tt_probe(uint64_t key,
     int depth,
+    int ply,
     int alpha,
     int beta,
     int& score,
@@ -33,6 +34,7 @@ Move tt_get_move(uint64_t key);
 
 void tt_store(uint64_t key,
     int depth,
+    int ply,
     int score,
     TTFlag flag,
     Move bestMove);
