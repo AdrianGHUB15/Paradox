@@ -31,8 +31,6 @@ Move currentPV[128];
 int currentPV_len = 0;
 int currentScore = 0;
 
-constexpr int MATE = 32000;
-
 static constexpr int PieceValue[6] = {
     100,   // pawn
     320,   // knight
@@ -202,7 +200,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     Move ttMove = 0;
     int ttScore = 0;
 
-    if (tt_probe(pos.hash, depth, alpha, beta, ttScore, ttMove)) {
+    if (tt_probe(pos.hash, depth, ply, alpha, beta, ttScore, ttMove)) {
         if (ply != 0)
             return ttScore;
     }
@@ -316,6 +314,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
 
         tt_store(pos.hash,
             depth,
+            ply,
             bestScore,
             flag,
             bestMove);

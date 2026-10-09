@@ -25,6 +25,7 @@ int qsearch(Board& pos, int alpha, int beta);
 // depth <= 0 uses the default bench depth.
 Move run_bench(int depth = 0);
 
+constexpr int MATE = 32000;
 extern bool stopRequested;
 extern bool infiniteSearch;
 extern int MAX_NODES;
