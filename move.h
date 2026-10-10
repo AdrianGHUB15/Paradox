@@ -3,58 +3,45 @@
 #include <cstdint>
 #include "types.h"
 
-// ============================================================
-// Move Encoding (16-bit)
-//
-// bits  0-5   : from square
-// bits  6-11  : to square
-// bits 12-15  : move type
-// ============================================================
-
 using Move = uint16_t;
 
-// ============================================================
-// Move Types
-// ============================================================
+// Legacy promotion values. Keep these stable for board.h.
+enum Promo : int {
+    PROMO_NONE = 0,
+    PROMO_N = 1,
+    PROMO_B = 2,
+    PROMO_R = 3,
+    PROMO_Q = 4
+};
 
-enum MoveType : uint8_t {
+// Legacy flags. Keep these stable for movegen.cpp and board.h.
+enum MoveFlag : int {
+    FLAG_NONE = 0,
+    FLAG_CAPTURE = 1,
+    FLAG_DBL_PUSH = 2,
+    FLAG_ENPASSANT = 3,
+    FLAG_CASTLING = 4
+};
+
+// Four bits available in the packed move.
+enum MoveType : int {
     QUIET = 0,
-
     DOUBLE_PUSH,
     KING_CASTLE,
     QUEEN_CASTLE,
-
     CAPTURE,
     ENPASSANT,
-
-    PROMO_N,
-    PROMO_B,
-    PROMO_R,
-    PROMO_Q,
-
-    PROMO_N_CAPTURE,
-    PROMO_B_CAPTURE,
-    PROMO_R_CAPTURE,
-    PROMO_Q_CAPTURE
+    MOVE_PROMO_N,
+    MOVE_PROMO_B,
+    MOVE_PROMO_R,
+    MOVE_PROMO_Q,
+    MOVE_PROMO_N_CAPTURE,
+    MOVE_PROMO_B_CAPTURE,
+    MOVE_PROMO_R_CAPTURE,
+    MOVE_PROMO_Q_CAPTURE
 };
 
-// ============================================================
-// Legacy Compatibility
-// ============================================================
-
-constexpr int PROMO_NONE = 0;
-
-constexpr int FLAG_NONE = 0;
-constexpr int FLAG_CAPTURE = 1;
-constexpr int FLAG_DBL_PUSH = 2;
-constexpr int FLAG_ENPASSANT = 3;
-constexpr int FLAG_CASTLING = 4;
-
-// ============================================================
-// Constructors
-// ============================================================
-
-inline Move make_move(int from, int to, int type = QUIET)
+inline Move make_move_type(int from, int to, int type)
 {
     return Move(
         (from & 0x3F) |
@@ -63,63 +50,50 @@ inline Move make_move(int from, int to, int type = QUIET)
     );
 }
 
-// Old API compatibility:
-// make_move(from, to, promo, flags)
-inline Move make_move(int from, int to, int promo, int flags)
+// Backward-compatible API: make_move(from, to, promo, flags).
+inline Move make_move(int from, int to,
+    int promo = PROMO_NONE,
+    int flags = FLAG_NONE)
 {
     int type = QUIET;
 
-    switch (flags)
-    {
+    switch (flags) {
     case FLAG_CAPTURE:
-
-        switch (promo)
-        {
-        case PROMO_N: type = PROMO_N_CAPTURE; break;
-        case PROMO_B: type = PROMO_B_CAPTURE; break;
-        case PROMO_R: type = PROMO_R_CAPTURE; break;
-        case PROMO_Q: type = PROMO_Q_CAPTURE; break;
-        default:      type = CAPTURE;         break;
+        switch (promo) {
+        case PROMO_N: type = MOVE_PROMO_N_CAPTURE; break;
+        case PROMO_B: type = MOVE_PROMO_B_CAPTURE; break;
+        case PROMO_R: type = MOVE_PROMO_R_CAPTURE; break;
+        case PROMO_Q: type = MOVE_PROMO_Q_CAPTURE; break;
+        default:      type = CAPTURE; break;
         }
-
-        break;
-
-    case FLAG_ENPASSANT:
-        type = ENPASSANT;
         break;
 
     case FLAG_DBL_PUSH:
         type = DOUBLE_PUSH;
         break;
 
+    case FLAG_ENPASSANT:
+        type = ENPASSANT;
+        break;
+
     case FLAG_CASTLING:
-
-        // temporary compatibility hack
-        // both castles map here for now
-
-        type = KING_CASTLE;
+        // e1-g1, e1-c1, e8-g8, e8-c8
+        type = ((to & 7) == 6) ? KING_CASTLE : QUEEN_CASTLE;
         break;
 
     default:
-
-        switch (promo)
-        {
-        case PROMO_N: type = PROMO_N; break;
-        case PROMO_B: type = PROMO_B; break;
-        case PROMO_R: type = PROMO_R; break;
-        case PROMO_Q: type = PROMO_Q; break;
-        default:      type = QUIET;   break;
+        switch (promo) {
+        case PROMO_N: type = MOVE_PROMO_N; break;
+        case PROMO_B: type = MOVE_PROMO_B; break;
+        case PROMO_R: type = MOVE_PROMO_R; break;
+        case PROMO_Q: type = MOVE_PROMO_Q; break;
+        default:      type = QUIET; break;
         }
-
         break;
     }
 
-    return make_move(from, to, type);
+    return make_move_type(from, to, type);
 }
-
-// ============================================================
-// Extractors
-// ============================================================
 
 inline int from_sq(Move m)
 {
@@ -136,19 +110,14 @@ inline int move_type(Move m)
     return (m >> 12) & 0x0F;
 }
 
-// ============================================================
-// Compatibility Accessors
-// ============================================================
-
 inline int flags_of(Move m)
 {
-    switch (move_type(m))
-    {
+    switch (move_type(m)) {
     case CAPTURE:
-    case PROMO_N_CAPTURE:
-    case PROMO_B_CAPTURE:
-    case PROMO_R_CAPTURE:
-    case PROMO_Q_CAPTURE:
+    case MOVE_PROMO_N_CAPTURE:
+    case MOVE_PROMO_B_CAPTURE:
+    case MOVE_PROMO_R_CAPTURE:
+    case MOVE_PROMO_Q_CAPTURE:
         return FLAG_CAPTURE;
 
     case DOUBLE_PUSH:
@@ -166,24 +135,28 @@ inline int flags_of(Move m)
     }
 }
 
+inline int move_flags(Move m)
+{
+    return flags_of(m);
+}
+
 inline int promo_of(Move m)
 {
-    switch (move_type(m))
-    {
-    case PROMO_N:
-    case PROMO_N_CAPTURE:
+    switch (move_type(m)) {
+    case MOVE_PROMO_N:
+    case MOVE_PROMO_N_CAPTURE:
         return PROMO_N;
 
-    case PROMO_B:
-    case PROMO_B_CAPTURE:
+    case MOVE_PROMO_B:
+    case MOVE_PROMO_B_CAPTURE:
         return PROMO_B;
 
-    case PROMO_R:
-    case PROMO_R_CAPTURE:
+    case MOVE_PROMO_R:
+    case MOVE_PROMO_R_CAPTURE:
         return PROMO_R;
 
-    case PROMO_Q:
-    case PROMO_Q_CAPTURE:
+    case MOVE_PROMO_Q:
+    case MOVE_PROMO_Q_CAPTURE:
         return PROMO_Q;
 
     default:
@@ -191,14 +164,10 @@ inline int promo_of(Move m)
     }
 }
 
-// ============================================================
-// Helpers
-// ============================================================
-
 inline bool is_capture(Move m)
 {
-    return flags_of(m) == FLAG_CAPTURE
-        || flags_of(m) == FLAG_ENPASSANT;
+    return flags_of(m) == FLAG_CAPTURE ||
+        flags_of(m) == FLAG_ENPASSANT;
 }
 
 inline bool is_promo(Move m)
@@ -214,9 +183,7 @@ inline bool is_ep(Move m)
 inline bool is_castle(Move m)
 {
     int t = move_type(m);
-
-    return t == KING_CASTLE
-        || t == QUEEN_CASTLE;
+    return t == KING_CASTLE || t == QUEEN_CASTLE;
 }
 
 inline bool is_double_push(Move m)
@@ -226,8 +193,7 @@ inline bool is_double_push(Move m)
 
 inline Piece promo_piece(Move m)
 {
-    switch (promo_of(m))
-    {
+    switch (promo_of(m)) {
     case PROMO_N: return KNIGHT;
     case PROMO_B: return BISHOP;
     case PROMO_R: return ROOK;
@@ -235,9 +201,5 @@ inline Piece promo_piece(Move m)
     default:      return NO_PIECE;
     }
 }
-
-// ============================================================
-// UCI / debug
-// ============================================================
 
 const char* move_to_string(Move m);

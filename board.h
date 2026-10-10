@@ -475,4 +475,3 @@ inline bool Board::sanity_check() const {
 
     return true;
 }
-
