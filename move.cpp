@@ -12,12 +12,23 @@ const char* move_to_string(Move m) {
     buf[3] = '1' + (t >> 3);
 
     int promo = promo_of(m);
-    if (promo) {
-        buf[4] = " nbrq"[promo];
-        buf[5] = 0;
+
+    if (promo)
+    {
+        switch (promo)
+        {
+        case PROMO_N: buf[4] = 'n'; break;
+        case PROMO_B: buf[4] = 'b'; break;
+        case PROMO_R: buf[4] = 'r'; break;
+        case PROMO_Q: buf[4] = 'q'; break;
+        default:      buf[4] = '?'; break;
+        }
+
+        buf[5] = '\0';
     }
-    else {
-        buf[4] = 0;
+    else
+    {
+        buf[4] = '\0';
     }
 
     return buf;
