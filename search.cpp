@@ -31,6 +31,9 @@ Move currentPV[128];
 int currentPV_len = 0;
 int currentScore = 0;
 
+static Move previousBestMove = 0;
+static int bestMoveStableDepths = 0;
+
 static constexpr int PieceValue[6] = {
     100,   // pawn
     320,   // knight
@@ -265,7 +268,6 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
                 continue;
             }
         }
-
         pos.make_move(m, st);
         int score = -negamax(pos, depth - 1, ply + 1, -beta, -alpha, childPV, childPV_len);
         pos.unmake_move(st);
@@ -335,6 +337,9 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
     currentPV_len = 0;
     currentScore = 0;
 
+    previousBestMove = 0;
+    bestMoveStableDepths = 0;
+
     std::memset(finalPV, 0, sizeof(finalPV));
     std::memset(currentPV, 0, sizeof(currentPV));
 
@@ -399,47 +404,23 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
     for (int depth = 1; depth <= (limits.depth > 0 ? limits.depth : 99); depth++) {
         interrupted = false;
 
-        // --- TIME MANAGEMENT: stop if we can't afford depth+1 ---
-        if (timeManaged && !limits.movetime && depth >= 2 && finalPV_len > 0) {
-            auto now = std::chrono::steady_clock::now();
-            int elapsed = (int)std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
-
-            if (elapsed <= 0) elapsed = 1;
-
-            int time_left = TIME_LIMIT_MS - elapsed;
-
-            if (time_left <= 0) {
-                std::cout << "info string no time left, stopping at depth "
-                    << (depth - 1) << "\n";
-                    return finalPV[0];
-            }
-
-            // Estimate cost of next iteration from previous depth
-            uint64_t nodesThisDepth = nodes - lastDepthNodes;
-
-            if (nodesThisDepth == 0) nodesThisDepth = 1;
-
-            uint64_t nps = nodes * 1000ULL / elapsed;
-
-            if (nps == 0) nps = 1;
-
-            // Simple model: next depth ≈ 2x current depth cost
-            uint64_t estimatedNextNodes = nodesThisDepth * 2;
-            int estimatedNextMs = (int)(estimatedNextNodes * 1000ULL / nps);
-
-            if (time_left < estimatedNextMs) {
-                std::cout << "info string not enough time for depth "
-                    << (depth + 1) << ", stopping at depth "
-                    << depth << "\n";
-                return finalPV[0];
-            }
-
-            lastDepthNodes = nodes;
-        }
-
         int score = negamax(pos, depth, 0,  -100000000, 100000000, pv, pv_len);
 
+        // Only consider completed iterations.
+        if (!interrupted && pv_len > 0) {
+            Move currentBestMove = pv[0];
 
+            if (currentBestMove == previousBestMove) {
+                bestMoveStableDepths++;
+            }
+            else {
+                previousBestMove = currentBestMove;
+                bestMoveStableDepths = 0;
+            }
+        }
+        if (timeManaged && !limits.movetime && !limits.infinite) {
+            TIME_LIMIT_MS = TIME_LIMIT_MS * (100 - std::min(bestMoveStableDepths * 10, 90)) / 100;
+        }
         // compute ms and nps
         auto dend = std::chrono::steady_clock::now();
         int ms = (int)std::chrono::duration_cast<std::chrono::milliseconds>(dend - startTime).count();
