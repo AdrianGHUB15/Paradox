@@ -5,6 +5,12 @@
 
 #include <cstring>
 
+class Board;
+
+int eval_piece_mg(int piece, Color c, int sq);
+int eval_piece_eg(int piece, Color c, int sq);
+void rebuild_incremental_eval(Board& pos);
+
 struct State {
     uint8_t   castling;
     int       epSquare;
@@ -15,6 +21,8 @@ struct State {
     Bitboard  occupiedBB;
     uint64_t  hash;
     Color     stm;
+    int evalMG;
+    int evalEG;
 };
 
 class Board {
@@ -25,6 +33,9 @@ public:
 
     int   kingSq[2];
     Color stm;
+
+    int evalMG = 0;
+    int evalEG = 0;
 
     uint8_t  castling;
     int      epSquare;
@@ -130,6 +141,8 @@ inline bool Board::make_move(Move m, State& st) {
     st.occupiedBB = occupiedBB;
     st.hash = hash;
     st.stm = stm;
+    st.evalMG = evalMG;
+    st.evalEG = evalEG;
 
     int from = from_sq(m);
     int to = to_sq(m);
@@ -138,6 +151,8 @@ inline bool Board::make_move(Move m, State& st) {
 
     Color us = stm;
     Color them = Color(us ^ 1);
+
+    int sign = (us == WHITE ? 1 : -1);
 
     Piece pc = piece_at(from);
     if (pc == NO_PIECE)
@@ -190,6 +205,9 @@ inline bool Board::make_move(Move m, State& st) {
         }
     }
 
+    evalMG -= sign * eval_piece_mg(pc, us, from);
+    evalEG -= sign * eval_piece_eg(pc, us, from);
+
     // remove piece from source
     pieceBB[us][pc] &= ~fromBB;
     colorBB[us] &= ~fromBB;
@@ -205,6 +223,11 @@ inline bool Board::make_move(Move m, State& st) {
         Piece cap = piece_at(capSq);
         if (cap != NO_PIECE) {
             Bitboard capBB = 1ULL << capSq;
+
+            int capSign = (them == WHITE ? 1 : -1);
+
+            evalMG -= capSign * eval_piece_mg(cap, them, capSq);
+            evalEG -= capSign * eval_piece_eg(cap, them, capSq);
 
             pieceBB[them][cap] &= ~capBB;
             colorBB[them] &= ~capBB;
@@ -239,6 +262,8 @@ inline bool Board::make_move(Move m, State& st) {
             promo == PROMO_R ? ROOK :
             QUEEN);
     }
+    evalMG += sign * eval_piece_mg(newPc, us, to);
+    evalEG += sign * eval_piece_eg(newPc, us, to);
 
     // add piece to destination
     pieceBB[us][newPc] |= toBB;
@@ -250,6 +275,37 @@ inline bool Board::make_move(Move m, State& st) {
         kingSq[us] = to;
 
     // castling rook move (board already validated above)
+
+    if (flag == FLAG_CASTLING) {
+        int rookFrom = -1;
+        int rookTo = -1;
+
+        if (us == WHITE && to == 6) {
+            rookFrom = 7;
+            rookTo = 5;
+        }
+        else if (us == WHITE && to == 2) {
+            rookFrom = 0;
+            rookTo = 3;
+        }
+        else if (us == BLACK && to == 62) {
+            rookFrom = 63;
+            rookTo = 61;
+        }
+        else if (us == BLACK && to == 58) {
+            rookFrom = 56;
+            rookTo = 59;
+        }
+
+        if (rookFrom != -1) {
+            evalMG -= sign * eval_piece_mg(ROOK, us, rookFrom);
+            evalEG -= sign * eval_piece_eg(ROOK, us, rookFrom);
+
+            evalMG += sign * eval_piece_mg(ROOK, us, rookTo);
+            evalEG += sign * eval_piece_eg(ROOK, us, rookTo);
+        }
+    }
+
     if (flag == FLAG_CASTLING) {
         if (to == 6) { // white king side
             pieceBB[WHITE][ROOK] &= ~(1ULL << 7);
@@ -334,6 +390,8 @@ inline void Board::unmake_move(const State& st) {
     occupiedBB = st.occupiedBB;
     hash = st.hash;
     stm = st.stm;
+    evalMG = st.evalMG;
+    evalEG = st.evalEG;
 
 }
 
@@ -394,6 +452,8 @@ inline void Board::make_null_move(State& st) {
     st.occupiedBB = occupiedBB;
     st.hash = hash;
     st.stm = stm;
+    st.evalMG = evalMG;
+    st.evalEG = evalEG;
 
     // Remove EP hash if present
     if (epSquare != -1)
@@ -419,6 +479,8 @@ inline void Board::unmake_null_move(const State& st) {
     occupiedBB = st.occupiedBB;
     hash = st.hash;
     stm = st.stm;
+    evalMG = st.evalMG;
+    evalEG = st.evalEG;
 
 }
 

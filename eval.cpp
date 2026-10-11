@@ -192,7 +192,65 @@ EvalParams evalParams = {
 // ============================================================
 
 static inline int mirror_sq(int sq) { return sq ^ 56; }
+int eval_piece_mg(int p, Color c, int sq) {
+    int m = (c == WHITE ? sq : mirror_sq(sq));
 
+    int pst = 0;
+
+    switch (p) {
+    case PAWN:   pst = evalParams.pstPawnMG[m]; break;
+    case KNIGHT: pst = evalParams.pstKnightMG[m]; break;
+    case BISHOP: pst = evalParams.pstBishopMG[m]; break;
+    case ROOK:   pst = evalParams.pstRookMG[m]; break;
+    case QUEEN:  pst = evalParams.pstQueenMG[m]; break;
+    case KING:   pst = evalParams.pstKingMG[m]; break;
+    default: return 0;
+    }
+
+    return evalParams.pieceMG[p] + pst;
+}
+
+int eval_piece_eg(int p, Color c, int sq) {
+    int m = (c == WHITE ? sq : mirror_sq(sq));
+
+    int pst = 0;
+
+    switch (p) {
+    case PAWN:   pst = evalParams.pstPawnEG[m]; break;
+    case KNIGHT: pst = evalParams.pstKnightEG[m]; break;
+    case BISHOP: pst = evalParams.pstBishopEG[m]; break;
+    case ROOK:   pst = evalParams.pstRookEG[m]; break;
+    case QUEEN:  pst = evalParams.pstQueenEG[m]; break;
+    case KING:   pst = evalParams.pstKingEG[m]; break;
+    default: return 0;
+    }
+
+    return evalParams.pieceEG[p] + pst;
+}
+
+void rebuild_incremental_eval(Board& pos) {
+    pos.evalMG = 0;
+    pos.evalEG = 0;
+
+    for (int c = 0; c < 2; ++c) {
+        Color col = Color(c);
+        int sign = (col == WHITE ? 1 : -1);
+
+        for (int p = PAWN; p <= KING; ++p) {
+            Bitboard bb = pos.pieceBB[c][p];
+
+            while (bb) {
+                int sq = pop_lsb(bb);
+
+                pos.evalMG +=
+                    sign * eval_piece_mg(p, col, sq);
+
+                pos.evalEG +=
+                    sign * eval_piece_eg(p, col, sq);
+            }
+        }
+    }
+}
 static int game_phase(const Board& pos) {
     int phase = 0;
 
@@ -217,50 +275,9 @@ int evaluate(const Board& pos) {
     int mg = 0;
     int eg = 0;
 
-    // ---------------- Material + PST ----------------
-    for (int c = 0; c < 2; c++) {
-        Color col = Color(c);
-        int sign = (col == WHITE ? 1 : -1);
-
-        for (int p = PAWN; p <= KING; p++) {
-            Bitboard bb = pos.pieceBB[col][p];
-            while (bb) {
-                int sq = pop_lsb(bb);
-                int m = (col == WHITE ? sq : mirror_sq(sq));
-
-                mg += sign * evalParams.pieceMG[p];
-                eg += sign * evalParams.pieceEG[p];
-
-                switch (p) {
-                case PAWN:
-                    mg += sign * evalParams.pstPawnMG[m];
-                    eg += sign * evalParams.pstPawnEG[m];
-                    break;
-                case KNIGHT:
-                    mg += sign * evalParams.pstKnightMG[m];
-                    eg += sign * evalParams.pstKnightEG[m];
-                    break;
-                case BISHOP:
-                    mg += sign * evalParams.pstBishopMG[m];
-                    eg += sign * evalParams.pstBishopEG[m];
-                    break;
-                case ROOK:
-                    mg += sign * evalParams.pstRookMG[m];
-                    eg += sign * evalParams.pstRookEG[m];
-                    break;
-                case QUEEN:
-                    mg += sign * evalParams.pstQueenMG[m];
-                    eg += sign * evalParams.pstQueenEG[m];
-                    break;
-                case KING:
-                    mg += sign * evalParams.pstKingMG[m];
-                    eg += sign * evalParams.pstKingEG[m];
-                    break;
-                }
-            }
-        }
-    }
-
+    // ---------------- Incremental Material + PST ----------------
+    mg = pos.evalMG;
+    eg = pos.evalEG;
     // ---------------- Extra terms per side ----------------
     Bitboard occ = pos.occupiedBB;
 

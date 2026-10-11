@@ -136,6 +136,8 @@ void Board::set_fen(const char* fen) {
     // Initialize repetition history with the starting position.
     repLen = 1;
     repHistory[0] = hash;
+
+    rebuild_incremental_eval(*this);
 }
 
 void Board::print() const {
