@@ -247,49 +247,85 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     Move childPV[128];
     int childPV_len = 0;
 
-    for (int i = 0; i < list.size; i++) {
+    Move childPV[128];
+    int childPV_len = 0;
+    int moveCount = 0;
+
+    for (int i = 0; i < list.size; ++i) {
         Move m = list.moves[i];
+
         if (showCurrMove && ply == 0 && depth >= 9) {
             std::cout << "info depth " << depth
                 << " currmove " << move_to_string(m)
                 << " currmovenumber " << (i + 1)
-                << " nodes " << nodes
-                << "\n";
-            std::cout.flush();
+                << " nodes " << nodes << '\n';
         }
-        State st;
-        // --- Reverse Futility Pruning (RFP) ---
-        if (depth <= 4 && !is_capture(m)) {
 
-            if (eval + 50 * depth <= alpha) {
-                continue;
+        bool capture = is_capture(m);
+        bool promotion = is_promotion(m);
+        bool isCheck = in_check(pos, pos.stm);
+        bool quiet = !capture && !promotion && !isCheck;
+
+        State st;
+        pos.make_move(m, st);
+
+        ++moveCount;
+
+        int score;
+        int PvNode = beta - alpha > 1;
+
+        int reduction = 0;
+
+        if (depth >= 3 && moveCount >= 4 && quiet && PvNode) {
+            reduction = 1;
+
+            if (depth >= 6 && moveCount >= 8)
+                reduction = 2;
+
+            // Never reduce beyond the available child depth.
+            reduction = std::min(reduction, depth - 2);
+        }
+
+        if (moveCount == 1) {
+            score = -negamax(pos, depth - 1, ply + 1, -beta, -alpha, childPV, childPV_len);
+        }
+        else {
+            // Later moves: reduced-depth scout search.
+            score = -negamax(pos, depth - 1 - reduction, ply + 1, -alpha - 1, -alpha, childPV, childPV_len);
+
+            if (!interrupted && reduction > 0 && score > alpha) {
+                score = -negamax(pos, depth - 1, ply + 1, -alpha - 1, -alpha, childPV, childPV_len);
+            }
+
+            if (!interrupted && score > alpha && score < beta) {
+                score = -negamax(pos, depth - 1, ply + 1, -beta, -alpha, childPV, childPV_len);
             }
         }
 
-        pos.make_move(m, st);
-        int score = -negamax(pos, depth - 1, ply + 1, -beta, -alpha, childPV, childPV_len);
         pos.unmake_move(st);
 
-        if (time_up()) {
-            interrupted = true;
-            break;
-        }
+        if (interrupted)
+            return 0;
 
         if (score > bestScore) {
             bestScore = score;
 
             pv[0] = m;
-            for (int j = 0; j < childPV_len; j++)
+            for (int j = 0; j < childPV_len && j < 127; ++j)
                 pv[j + 1] = childPV[j];
-            pv_len = childPV_len + 1;
+
+            pv_len = std::min(childPV_len + 1, 128);
         }
+
         if (score > alpha) {
             alpha = score;
-            update_history(m, depth);
-        }
-        if (alpha >= beta) {
 
-            if (!is_capture(m)) {
+            if (quiet)
+                update_history(m, depth);
+        }
+
+        if (alpha >= beta) {
+            if (quiet) {
                 killers[ply][1] = killers[ply][0];
                 killers[ply][0] = m;
             }
