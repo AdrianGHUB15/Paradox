@@ -241,11 +241,8 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         list.moves + list.size,
         [&](Move a, Move b) {
             return move_score(pos, a, ply)
-                         > move_score(pos, b, ply);
+                 > move_score(pos, b, ply);
         });
-
-    Move childPV[128];
-    int childPV_len = 0;
 
     Move childPV[128];
     int childPV_len = 0;
