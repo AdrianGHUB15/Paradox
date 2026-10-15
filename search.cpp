@@ -260,20 +260,19 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
 
         bool capture = is_capture(m);
         bool promotion = is_promo(m);
-        bool isCheck = in_check(pos, pos.stm);
-        bool quiet = !capture && !promotion && !isCheck;
 
         State st;
         pos.make_move(m, st);
 
+        bool isCheck = in_check(pos, pos.stm);
+        bool quiet = !capture && !promotion && !isCheck;
+
         ++moveCount;
 
         int score;
-        int PvNode = beta - alpha > 1;
-
         int reduction = 0;
 
-        if (depth >= 3 && moveCount >= 4 && quiet && PvNode) {
+        if (depth >= 3 && moveCount >= 4 && quiet) {
             reduction = 1;
 
             if (depth >= 6 && moveCount >= 8)
