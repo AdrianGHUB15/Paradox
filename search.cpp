@@ -262,7 +262,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         }
 
         bool capture = is_capture(m);
-        bool promotion = is_promotion(m);
+        bool promotion = is_promo(m);
         bool isCheck = in_check(pos, pos.stm);
         bool quiet = !capture && !promotion && !isCheck;
 
