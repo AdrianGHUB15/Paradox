@@ -309,7 +309,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
             bestScore = score;
 
             pv[0] = m;
-            for (int j = 0; j < childPV_len && j++)
+            for (int j = 0; j < childPV_len; && j++)
                 pv[j + 1] = childPV[j];
 
             pv_len = childPV_len + 1;
