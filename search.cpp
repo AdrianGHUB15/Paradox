@@ -248,14 +248,16 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     int childPV_len = 0;
     int moveCount = 0;
 
-    for (int i = 0; i < list.size; ++i) {
+    for (int i = 0; i < list.size; i++) {
         Move m = list.moves[i];
 
         if (showCurrMove && ply == 0 && depth >= 9) {
             std::cout << "info depth " << depth
                 << " currmove " << move_to_string(m)
                 << " currmovenumber " << (i + 1)
-                << " nodes " << nodes << '\n';
+                << " nodes " << nodes
+                << "\n";
+            std::cout.flush();
         }
 
         bool capture = is_capture(m);
@@ -307,28 +309,24 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
             bestScore = score;
 
             pv[0] = m;
-            for (int j = 0; j < childPV_len && j < 127; ++j)
+            for (int j = 0; j < childPV_len && j++)
                 pv[j + 1] = childPV[j];
 
-            pv_len = std::min(childPV_len + 1, 128);
+            pv_len = childPV_len + 1;
         }
 
         if (score > alpha) {
             alpha = score;
-
-            if (quiet)
-                update_history(m, depth);
+            update_history(m, depth);
         }
 
         if (alpha >= beta) {
-            if (quiet) {
-                killers[ply][1] = killers[ply][0];
-                killers[ply][0] = m;
-            }
+            killers[ply][1] = killers[ply][0];
+            killers[ply][0] = m;
             break;
         }
     }
-    if (!interrupted && bestScore != -100000000) {
+    if (!interrupted) {
 
         TTFlag flag;
 
@@ -443,7 +441,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
             if (time_left <= 0) {
                 std::cout << "info string no time left, stopping at depth "
                     << (depth - 1) << "\n";
-                    return finalPV[0];
+                return finalPV[0];
             }
 
             // Estimate cost of next iteration from previous depth
@@ -469,7 +467,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
             lastDepthNodes = nodes;
         }
 
-        int score = negamax(pos, depth, 0,  -100000000, 100000000, pv, pv_len);
+        int score = negamax(pos, depth, 0, -100000000, 100000000, pv, pv_len);
 
 
         // compute ms and nps
