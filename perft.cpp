@@ -4,9 +4,7 @@
 #include <algorithm>
 #include <chrono>
 
-// ------------------------------------------------------------
 // MOVE ORDERING
-// ------------------------------------------------------------
 
 static int move_sort_key(const Board& pos, Move m) {
     int from = from_sq(m);
@@ -45,9 +43,7 @@ static int move_sort_key(const Board& pos, Move m) {
     return (group << 12) | (from << 6) | to;
 }
 
-// ------------------------------------------------------------
 // FEN GENERATION
-// ------------------------------------------------------------
 
 static char piece_to_fen(Piece p, Color c) {
     static const char* white = "PNBRQK";
@@ -172,10 +168,7 @@ std::uint64_t perft_divide(Board& pos, int depth) {
     return total;
 }
 
-// ------------------------------------------------------------
 // PERFT BREAKDOWN (COMPARE TO REFERENCE TABLES)
-// ------------------------------------------------------------
-
 void perft_break(Board& pos, int depth) {
     RefMoveList ref =
         load_reference_for_depth(board_to_fen(pos), depth);
@@ -253,9 +246,7 @@ void perft_break(Board& pos, int depth) {
         total_ms,
         total_nps);
 }
-// ------------------------------------------------------------
 // FULL PERFT SUITE
-// ------------------------------------------------------------
 
 struct PerftSuiteTest
 {
@@ -271,9 +262,7 @@ struct PerftSuiteConfig
     int testCount;
 };
 
-// ------------------------------------------------------------
 // Generic suite runner
-// ------------------------------------------------------------
 
 static void run_perft_suite(const PerftSuiteConfig& config)
 {
@@ -327,10 +316,8 @@ static void run_perft_suite(const PerftSuiteConfig& config)
             auto start =
                 std::chrono::high_resolution_clock::now();
 
-            // ------------------------------------------------
-            // Compare every legal root move
-            // ------------------------------------------------
 
+            // Compare every legal root move
             for (int i = 0; i < list.size; ++i)
             {
                 Move m = list.moves[i];
@@ -383,10 +370,7 @@ static void run_perft_suite(const PerftSuiteConfig& config)
                 }
             }
 
-            // ------------------------------------------------
             // Detect reference moves missing from engine
-            // ------------------------------------------------
-
             for (const auto& r : ref)
             {
                 bool found = false;
@@ -428,10 +412,7 @@ static void run_perft_suite(const PerftSuiteConfig& config)
                 ? (engineTotal * 1000.0) / ms
                 : 0.0;
 
-            // ------------------------------------------------
             // Final result
-            // ------------------------------------------------
-
             if (depthPassed &&
                 engineTotal == referenceTotal)
             {
@@ -465,10 +446,7 @@ static void run_perft_suite(const PerftSuiteConfig& config)
         }
     }
 
-    // --------------------------------------------------------
     // Final summary
-    // --------------------------------------------------------
-
     std::printf("\n");
     std::printf("============================================================\n");
 
@@ -488,9 +466,7 @@ static void run_perft_suite(const PerftSuiteConfig& config)
     std::fflush(stdout);
 }
 
-// ------------------------------------------------------------
 // FAST
-// ------------------------------------------------------------
 
 void run_perft_suite_fast()
 {
@@ -510,9 +486,7 @@ void run_perft_suite_fast()
         });
 }
 
-// ------------------------------------------------------------
 // LONG
-// ------------------------------------------------------------
 
 void run_perft_suite_long()
 {
@@ -532,9 +506,7 @@ void run_perft_suite_long()
         });
 }
 
-// ------------------------------------------------------------
 // VERY LONG
-// ------------------------------------------------------------
 
 void run_perft_suite_very_long()
 {

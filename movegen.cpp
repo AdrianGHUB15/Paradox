@@ -10,9 +10,7 @@ static const int DIRS_ORTHO[4] = { 8, -8, 1, -1 };
 static const int DIRS_DIAG[4] = { 9, 7, -7, -9 };
 static const int DIRS_ALL[8] = { 8, -8, 1, -1, 9, 7, -7, -9 };
 
-// --------------------------------------------------------
 // Capture-only generation
-// --------------------------------------------------------
 void generate_captures(const Board& pos, MoveList& list) {
     list.size = 0;
 
@@ -126,9 +124,7 @@ void generate_captures(const Board& pos, MoveList& list) {
     }
 }
 
-// --------------------------------------------------------
 // Pseudo-legal move generation
-// --------------------------------------------------------
 void generate_pseudo(const Board& pos, MoveList& list) {
     list.size = 0;
 
@@ -297,9 +293,7 @@ void generate_pseudo(const Board& pos, MoveList& list) {
     }
 }
 
-// --------------------------------------------------------
 // Pins + checkmask
-// --------------------------------------------------------
 static void compute_pins_and_checkmask(
     const Board& pos,
     Color us,
@@ -406,9 +400,7 @@ static void compute_pins_and_checkmask(
     }
 }
 
-// --------------------------------------------------------
 // Legal move generation
-// --------------------------------------------------------
 void generate_legal(Board& pos, MoveList& list) {
     MoveList pseudo;
     generate_pseudo(pos, pseudo);

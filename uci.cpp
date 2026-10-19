@@ -13,9 +13,6 @@
 #include "search.h"
 #include "tt.h"
 
-// ------------------------------------------------------------
-// Global board
-// ------------------------------------------------------------
 static Board g_board;
 extern bool stopRequested;
 extern bool infiniteSearch;
@@ -26,9 +23,8 @@ std::uint64_t perft_divide(Board& pos, int depth);
 void run_perft_suite_fast();
 void run_perft_suite_long();
 void run_perft_suite_very_long();
-// ------------------------------------------------------------
+
 // Helpers
-// ------------------------------------------------------------
 static int uci_square_to_index(const std::string& s, int pos) {
     int file = s[pos] - 'a';
     int rank = s[pos + 1] - '1';
@@ -45,9 +41,7 @@ static int uci_promo_to_code(char c) {
     }
 }
 
-// ------------------------------------------------------------
 // Apply UCI moves
-// ------------------------------------------------------------
 static void apply_moves_uci(Board& pos, const std::string& movesPart) {
     std::stringstream ss(movesPart);
     std::string token;
@@ -86,6 +80,7 @@ static void apply_moves_uci(Board& pos, const std::string& movesPart) {
         pos.make_move(foundMove, st);
     }
 }
+
 static void cmd_setoption(const std::string& line) {
 
     std::istringstream iss(line);
@@ -123,8 +118,8 @@ static void cmd_setoption(const std::string& line) {
         if (mb < 1)
             mb = 1;
 
-        if (mb > 4096)
-            mb = 4096;
+        if (mb > 131072)
+            mb = 131072;
 
         tt_init(mb);
 
@@ -147,9 +142,7 @@ static void cmd_setoption(const std::string& line) {
     }
 }
 
-// ------------------------------------------------------------
 // POSITION command
-// ------------------------------------------------------------
 static void cmd_position(const std::string& line) {
     if (line.find("startpos") != std::string::npos) {
         g_board.set_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
@@ -183,9 +176,7 @@ static void cmd_position(const std::string& line) {
     }
 }
 
-// ------------------------------------------------------------
 // GO command
-// ------------------------------------------------------------
 static void cmd_go(const std::string& line) {
     tt_clear();
 
@@ -194,9 +185,8 @@ static void cmd_go(const std::string& line) {
     std::istringstream iss(line);
     std::string tok;
     iss >> tok;
-    // ------------------------------------------------------------
+
     // GO divide / perftbreak
-    // ------------------------------------------------------------
     {
         std::istringstream iss2(line);
         std::string goTok, mode;
@@ -241,10 +231,7 @@ static void cmd_go(const std::string& line) {
     std::cout << "bestmove " << move_to_string(best) << "\n";
 }
 
-
-// ------------------------------------------------------------
 // UCI LOOP
-// ------------------------------------------------------------
 void uci_loop() {
     std::string line;
 
@@ -260,7 +247,7 @@ void uci_loop() {
         if (line == "uci") {
             std::cout << "id name Paradox 3\n";
             std::cout << "id author Adrian Ladoni\n";
-            std::cout << "option name Hash type spin default 16 min 1 max 4096\n";
+            std::cout << "option name Hash type spin default 16 min 1 max 131072\n";
             std::cout << "option name Threads type spin default 1 min 1 max 1\n";
             std::cout << "uciok\n";
         }

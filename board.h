@@ -75,9 +75,7 @@ public:
     void print() const;
 };
 
-// --------------------------------------------------------
 // in_check using magic sliding attacks
-// --------------------------------------------------------
 inline bool in_check(const Board& pos, Color side) {
 
     Color them = Color(side ^ 1);
@@ -114,9 +112,7 @@ inline bool in_check(const Board& pos, Color side) {
     return false;
 }
 
-// --------------------------------------------------------
 // make_move / unmake_move
-// --------------------------------------------------------
 inline bool Board::make_move(Move m, State& st) {
 
     // Save state
@@ -337,9 +333,7 @@ inline void Board::unmake_move(const State& st) {
 
 }
 
-// --------------------------------------------------------
 // square_attacked using magic sliding attacks
-// --------------------------------------------------------
 inline bool Board::square_attacked(int sq, Color by) const {
 
     Bitboard occ = occupiedBB;
@@ -376,102 +370,4 @@ inline bool Board::square_attacked(int sq, Color by) const {
     
 
     return false;
-}
-
-// --------------------------------------------------------
-// Null move
-// --------------------------------------------------------
-inline void Board::make_null_move(State& st) {
-
-    // Save state
-    st.castling = castling;
-    st.epSquare = epSquare;
-    st.halfmoveClock = halfmoveClock;
-    st.kingSq[WHITE] = kingSq[WHITE];
-    st.kingSq[BLACK] = kingSq[BLACK];
-    std::memcpy(st.pieceBB, pieceBB, sizeof(pieceBB));
-    std::memcpy(st.colorBB, colorBB, sizeof(colorBB));
-    st.occupiedBB = occupiedBB;
-    st.hash = hash;
-    st.stm = stm;
-
-    // Remove EP hash if present
-    if (epSquare != -1)
-        hash ^= Z_EP[epSquare & 7];
-
-    // Clear EP
-    epSquare = -1;
-
-    // Flip side
-    stm = Color(stm ^ 1);
-    hash ^= Z_STM;
-}
-
-inline void Board::unmake_null_move(const State& st) {
-
-    castling = st.castling;
-    epSquare = st.epSquare;
-    halfmoveClock = st.halfmoveClock;
-    kingSq[WHITE] = st.kingSq[WHITE];
-    kingSq[BLACK] = st.kingSq[BLACK];
-    std::memcpy(pieceBB, st.pieceBB, sizeof(pieceBB));
-    std::memcpy(colorBB, st.colorBB, sizeof(colorBB));
-    occupiedBB = st.occupiedBB;
-    hash = st.hash;
-    stm = st.stm;
-
-}
-
-// --------------------------------------------------------
-// Non-pawn material
-// --------------------------------------------------------
-inline int Board::non_pawn_material(Color c) const {
-    int total = 0;
-
-    total += popcount(pieceBB[c][KNIGHT]) * 300;
-    total += popcount(pieceBB[c][BISHOP]) * 300;
-    total += popcount(pieceBB[c][ROOK]) * 500;
-    total += popcount(pieceBB[c][QUEEN]) * 900;
-
-    return total;
-}
-inline bool Board::sanity_check() const {
-
-    // 1. Side to move must be valid
-    if (stm != WHITE && stm != BLACK)
-        return false;
-
-    // 2. King squares must be on board
-    if (kingSq[WHITE] < 0 || kingSq[WHITE] >= 64)
-        return false;
-    if (kingSq[BLACK] < 0 || kingSq[BLACK] >= 64)
-        return false;
-
-    // 3. King bitboards must contain exactly one king
-    Bitboard wk = pieceBB[WHITE][KING];
-    Bitboard bk = pieceBB[BLACK][KING];
-    if (wk == 0 || bk == 0) return false;
-    if (wk & (wk - 1)) return false; // more than one white king
-    if (bk & (bk - 1)) return false; // more than one black king
-
-    // 4. colorBB must match pieceBB
-    Bitboard cW = 0, cB = 0;
-    for (int p = 0; p < 6; ++p) {
-        cW |= pieceBB[WHITE][p];
-        cB |= pieceBB[BLACK][p];
-    }
-    if (cW != colorBB[WHITE]) return false;
-    if (cB != colorBB[BLACK]) return false;
-
-    // 5. occupied must match union
-    if (occupiedBB != (cW | cB)) return false;
-
-    // 6. no overlap
-    if (cW & cB) return false;
-
-    // 7. king squares must match bitboards
-    if (!(pieceBB[WHITE][KING] & (1ULL << kingSq[WHITE]))) return false;
-    if (!(pieceBB[BLACK][KING] & (1ULL << kingSq[BLACK]))) return false;
-
-    return true;
 }

@@ -248,10 +248,10 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     int childPV_len = 0;
     int moveCount = 0;
 
-    for (int i = 0; i < list.size; ++i) {
+    for (int i = 0; i < list.size; i++) {
         Move m = list.moves[i];
 
-        if (showCurrMove && ply == 0 && depth >= 9) {
+        if (showCurrMove && ply == 0 && (depth >= 12 || nodes >= 10000000)) {
             std::cout << "info depth " << depth
                 << " currmove " << move_to_string(m)
                 << " currmovenumber " << (i + 1)
@@ -307,10 +307,10 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
             bestScore = score;
 
             pv[0] = m;
-            for (int j = 0; j < childPV_len && j < 127; ++j)
+            for (int j = 0; j < childPV_len; j++j)
                 pv[j + 1] = childPV[j];
 
-            pv_len = std::min(childPV_len + 1, 128);
+            pv_len = childPV_len + 1;
         }
 
         if (score > alpha) {
