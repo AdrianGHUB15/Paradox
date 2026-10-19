@@ -14,9 +14,7 @@ Bitboard rookMasks[64];
 Bitboard bishopAttacks[64][512];
 Bitboard rookAttacks[64][4096];
 
-// --------------------------------------------
 // Knight attacks
-// --------------------------------------------
 const int DIRS[8] = {
     8,   // 0: N
    -8,   // 1: S
@@ -51,9 +49,7 @@ static Bitboard knight_from(int sq) {
     return bb;
 }
 
-// --------------------------------------------
 // King attacks
-// --------------------------------------------
 static Bitboard king_from(int sq) {
     Bitboard bb = 0;
     int r = sq >> 3;
@@ -74,9 +70,7 @@ static Bitboard king_from(int sq) {
     return bb;
 }
 
-// --------------------------------------------
 // Pawn attacks
-// --------------------------------------------
 static Bitboard pawn_from(Color c, int sq) {
     Bitboard bb = 0;
     int r = sq >> 3;
@@ -92,9 +86,7 @@ static Bitboard pawn_from(Color c, int sq) {
     return bb;
 }
 
-// --------------------------------------------
 // Bishop sliding attacks
-// --------------------------------------------
 Bitboard attacks_bishop(int sq, Bitboard occ) {
     Bitboard bb = 0;
     int r = sq >> 3;
@@ -125,9 +117,8 @@ Bitboard attacks_bishop(int sq, Bitboard occ) {
     return bb;
 }
 
-// --------------------------------------------
+
 // Rook sliding attacks
-// --------------------------------------------
 Bitboard attacks_rook(int sq, Bitboard occ) {
     Bitboard bb = 0;
     int r = sq >> 3;
@@ -170,9 +161,7 @@ void init_bitboards() {
         PAWN_ATTACKS[BLACK][sq] = pawn_from(BLACK, sq);
     }
 
-    // --------------------------------------------------------
     // STEP 7: Pawn push masks
-    // --------------------------------------------------------
     for (int sq = 0; sq < 64; sq++) {
         int r = sq >> 3;
 
@@ -200,9 +189,8 @@ void init_bitboards() {
         else
             PAWN_PUSH2[BLACK][sq] = 0;
     }
-    // --------------------------------------------------------
+
    // STEP 8: Sliding rays
-   // --------------------------------------------------------
     for (int sq = 0; sq < 64; sq++) {
         int f0 = sq & 7;
 
@@ -230,9 +218,7 @@ void init_bitboards() {
         }
     }
 
-    // --------------------------------------------------------
     // Files
-    // --------------------------------------------------------
     for (int f = 0; f < 8; ++f) {
         Bitboard bb = 0;
         for (int r = 0; r < 8; ++r)
@@ -271,9 +257,8 @@ void init_bitboards() {
     }
     init_magics();
 }
-// -------------------------
+
 // Magic helpers
-// -------------------------
 Bitboard mask_rook(int sq) {
     Bitboard bb = 0;
     int r = sq >> 3;
@@ -321,9 +306,7 @@ Bitboard index_to_occ(int index, Bitboard mask) {
     return occ;
 }
 
-// -------------------------
 // Global magic data
-// -------------------------
 Bitboard bishopMagics[64] = {
     0x400c5404032028ULL,
     0x4010412801284024ULL,
@@ -480,9 +463,7 @@ int rookShifts[64] = {
     0x34, 0x35, 0x35, 0x35, 0x35, 0x35, 0x35, 0x34,
 };
 
-// -------------------------
 // init_magics
-// -------------------------
 void init_magics() {
 
     // 1. Build masks

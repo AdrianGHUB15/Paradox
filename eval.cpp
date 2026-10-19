@@ -1,8 +1,6 @@
 #include "eval.h"
 
-// ============================================================
 //  Helper: own pieces mask
-// ============================================================
 inline Bitboard own_pieces(const Board& pos, Color c) {
     return pos.pieceBB[c][PAWN] |
         pos.pieceBB[c][KNIGHT] |
@@ -12,9 +10,8 @@ inline Bitboard own_pieces(const Board& pos, Color c) {
         pos.pieceBB[c][KING];
 }
 
-// ============================================================
-//  Eval parameters (initializer)
-// ============================================================
+
+//  Eval parameters
 
 EvalParams evalParams = {
     // pieceMG
@@ -187,9 +184,8 @@ EvalParams evalParams = {
     10
 };
 
-// ============================================================
+
 //  Game phase
-// ============================================================
 
 static inline int mirror_sq(int sq) { return sq ^ 56; }
 
@@ -209,10 +205,7 @@ static int game_phase(const Board& pos) {
     return (phase > 24 ? 24 : phase);
 }
 
-// ============================================================
-//  EVALUATION
-// ============================================================
-
+// Evaluation
 int evaluate(const Board& pos) {
     int mg = 0;
     int eg = 0;

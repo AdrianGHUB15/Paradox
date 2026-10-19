@@ -1,9 +1,7 @@
 #include "perft_tables.h"
 #include <unordered_map>
 
-// ------------------------------------------------------------
 // FEN strings
-// ------------------------------------------------------------
 
 const char* FEN_STARTPOS =
 "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -24,7 +22,7 @@ const char* FEN_5 =
 "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10";
 
 // ------------------------------------------------------------
-// STARTPOS tables (from stockfish 18)
+// STARTPOS tables
 // ------------------------------------------------------------
 
 // go perft 1
@@ -97,7 +95,7 @@ const RefMoveList TABLE_STARTPOS_D8 = {
 
 
 // ------------------------------------------------------------
-// FEN 1 tables (r3k2r/p1ppqpb1/...)
+// FEN 1 tables (r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1)
 // ------------------------------------------------------------
 
 // go perft 1
@@ -197,7 +195,7 @@ const RefMoveList TABLE_FEN1_D6 = {
 };
 
 // ------------------------------------------------------------
-// FEN 2 tables (8/2p5/3p4/KP5r/...)
+// FEN 2 tables (8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1)
 // ------------------------------------------------------------
 
 const RefMoveList TABLE_FEN2_D1 = {
@@ -255,7 +253,7 @@ const RefMoveList TABLE_FEN2_D8 = {
     {"b4f4", 50536497}, {"a5a4", 239427816}
 };
 // ------------------------------------------------------------
-// FEN 3 tables (r3k2r/Pppp1ppp/...)
+// FEN 3 tables (r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1)
 // ------------------------------------------------------------
 
 const RefMoveList TABLE_FEN3_D1 = {
@@ -292,7 +290,7 @@ const RefMoveList TABLE_FEN3_D7 = {
     {"b4c5", 3227348274}, {"f1f2", 4558995210}, {"g1h1", 5992804777}
 };
 // ------------------------------------------------------------
-// FEN 4 tables (rnbq1k1r/pp1Pbppp/...)
+// FEN 4 tables (rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8)
 // ------------------------------------------------------------
 
 const RefMoveList TABLE_FEN4_D1 = {
@@ -380,7 +378,7 @@ const RefMoveList TABLE_FEN4_D6 = {
 };
 
 // ------------------------------------------------------------
-// FEN 5 tables (r4rk1/1pp1qppp/...)
+// FEN 5 tables (r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10)
 // ------------------------------------------------------------
 
 const RefMoveList TABLE_FEN5_D1 = {

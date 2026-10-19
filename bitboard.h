@@ -3,9 +3,7 @@
 
 typedef uint64_t Bitboard;
 
-// --------------------------------------------
 // Portable bit operations
-// --------------------------------------------
 #ifdef _MSC_VER
 #include <intrin.h>
 
@@ -69,9 +67,7 @@ inline int msb(uint64_t b) {
 
 inline int popcount(uint64_t b) { return popcount64(b); }
 
-// --------------------------------------------
 // Non‑sliding attack tables
-// --------------------------------------------
 extern Bitboard KNIGHT_ATTACKS[64];
 extern Bitboard KING_ATTACKS[64];
 extern Bitboard PAWN_ATTACKS[2][64];
@@ -80,17 +76,13 @@ inline Bitboard attacks_knight(int sq) { return KNIGHT_ATTACKS[sq]; }
 inline Bitboard attacks_king(int sq) { return KING_ATTACKS[sq]; }
 inline Bitboard attacks_pawn(Color c, int sq) { return PAWN_ATTACKS[c][sq]; }
 
-// --------------------------------------------
 // File/rank/passed pawn masks
-// --------------------------------------------
 extern Bitboard file_mask[8];
 extern Bitboard rank_mask[8];
 extern Bitboard adjacent_files_mask[8];
 extern Bitboard passed_mask[2][64];
 
-// --------------------------------------------
 // Magic bitboard infrastructure
-// --------------------------------------------
 extern Bitboard bishopMasks[64];
 extern Bitboard rookMasks[64];
 
@@ -103,15 +95,11 @@ extern int rookShifts[64];
 extern Bitboard bishopAttacks[64][512];   // 2^9 max
 extern Bitboard rookAttacks[64][4096];    // 2^12 max
 
-// --------------------------------------------
 // Pawn pushes
-// --------------------------------------------
 extern Bitboard PAWN_PUSH[2][64];
 extern Bitboard PAWN_PUSH2[2][64];
 
-// --------------------------------------------
 // Magic lookup functions
-// --------------------------------------------
 inline Bitboard bishop_attack(int sq, Bitboard occ) {
     Bitboard o = occ & bishopMasks[sq];
     o *= bishopMagics[sq];
@@ -130,8 +118,6 @@ inline Bitboard queen_attack(int sq, Bitboard occ) {
     return bishop_attack(sq, occ) | rook_attack(sq, occ);
 }
 
-// --------------------------------------------
 // Initialization
-// --------------------------------------------
 void init_bitboards();   // knight/king/pawn + masks + pushes
 void init_magics();      // magic tables + sliding attacks
