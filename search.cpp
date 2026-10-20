@@ -271,6 +271,10 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
 
         int score;
         int reduction = 0;
+        int extension = 0;
+
+        if (isCheck)
+            extension++;
 
         if (depth >= 3 && moveCount >= 4 && quiet) {
             reduction = 1;
@@ -283,18 +287,18 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         }
 
         if (moveCount == 1) {
-            score = -negamax(pos, depth - 1, ply + 1, -beta, -alpha, childPV, childPV_len);
+            score = -negamax(pos, depth - 1 + extension, ply + 1, -beta, -alpha, childPV, childPV_len);
         }
         else {
             // Later moves: reduced-depth scout search.
-            score = -negamax(pos, depth - 1 - reduction, ply + 1, -alpha - 1, -alpha, childPV, childPV_len);
+            score = -negamax(pos, depth - 1 - reduction + extension, ply + 1, -alpha - 1, -alpha, childPV, childPV_len);
 
             if (!interrupted && reduction > 0 && score > alpha) {
-                score = -negamax(pos, depth - 1, ply + 1, -alpha - 1, -alpha, childPV, childPV_len);
+                score = -negamax(pos, depth - 1 + extension, ply + 1, -alpha - 1, -alpha, childPV, childPV_len);
             }
 
             if (!interrupted && score > alpha && score < beta) {
-                score = -negamax(pos, depth - 1, ply + 1, -beta, -alpha, childPV, childPV_len);
+                score = -negamax(pos, depth - 1 + extension, ply + 1, -beta, -alpha, childPV, childPV_len);
             }
         }
 
