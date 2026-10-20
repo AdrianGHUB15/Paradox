@@ -31,10 +31,6 @@ struct EvalParams {
     int rookMobMG, rookMobEG;
     int queenMobMG, queenMobEG;
 
-    // --- Bishop pair ---
-    int bishopPairMG;
-    int bishopPairEG;
-
     // --- Rook activity ---
     int rookOpenFile;
     int rookSemiOpenFile;

@@ -166,9 +166,6 @@ EvalParams evalParams = {
     // Mobility
     3,3, 4,4, 2,2, 1,1,
 
-    // Bishop pair
-    30,20,
-
     // Rook activity
     15,
     8,
@@ -299,12 +296,6 @@ int evaluate(const Board& pos) {
                 mg += sign * moves * evalParams.queenMobMG;
                 eg += sign * moves * evalParams.queenMobEG;
             }
-        }
-
-        // Bishop pair
-        if (popcount(pos.pieceBB[col][BISHOP]) >= 2) {
-            mg += sign * evalParams.bishopPairMG;
-            eg += sign * evalParams.bishopPairEG;
         }
 
         // Rook on open / semi-open file
