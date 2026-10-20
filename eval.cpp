@@ -177,9 +177,6 @@ EvalParams evalParams = {
     {0,10,20,30,40,60,80,0},
     {0,20,40,60,80,120,160,0},
 
-    // King safety
-    10,
-
     // Tempo
     10
 };
@@ -345,26 +342,6 @@ int evaluate(const Board& pos) {
                     eg += sign * evalParams.passedPawnEG[rank];
                 }
             }
-        }
-
-        // King safety: pawn shield
-        {
-            int kingSq = pos.kingSq[col];
-            int file = kingSq & 7;
-
-            int missing = 0;
-
-            for (int df = -1; df <= 1; df++) {
-                int f = file + df;
-                if (f < 0 || f > 7) continue;
-
-                int sq = (col == WHITE ? 8 + f : 48 + f);
-
-                if (!(pos.pieceBB[col][PAWN] & (1ULL << sq)))
-                    missing++;
-            }
-
-            mg -= sign * missing * evalParams.pawnShieldPenalty;
         }
     }
 

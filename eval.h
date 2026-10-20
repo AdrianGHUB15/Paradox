@@ -43,15 +43,9 @@ struct EvalParams {
     int passedPawnMG[8];
     int passedPawnEG[8];
 
-    // --- King safety ---
-    int pawnShieldPenalty;
-
     // --- Tempo ---
     int tempoBonus;
 };
-
-extern EvalParams evalParams;
-
 
 extern EvalParams evalParams;
 
