@@ -48,17 +48,27 @@ void update_history(Move m, int depth) {
 }
 
 int move_score(Board& pos, Move m, int ply) {
-
     if (is_capture(m)) {
-
         Piece victim = pos.piece_at(to_sq(m));
         Piece attacker = pos.piece_at(from_sq(m));
 
-        if (victim != NO_PIECE)
-            return 30000000
-            + PieceValue[victim] * 100
-            - PieceValue[attacker];
+        if (flags_of(m) == FLAG_ENPASSANT)
+            victim = PAWN;
+
+        if (victim != NO_PIECE && attacker != NO_PIECE) {
+            int mvvLva =
+                PieceValue[victim] * 100 - PieceValue[attacker];
+
+            int seeScore = see(pos, m);
+
+            if (seeScore >= 0)
+                return 30000000 + mvvLva + seeScore;
+
+            // Losing captures rank below quiet moves.
+            return -10000000 + seeScore * 100 + mvvLva;
+        }
     }
+
     if (m == killers[ply][0])
         return 20000000;
 
@@ -257,7 +267,6 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
                 << " currmovenumber " << (i + 1)
                 << " nodes " << nodes << '\n';
         }
-
         bool capture = is_capture(m);
         bool promotion = is_promo(m);
 
@@ -447,7 +456,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
             if (time_left <= 0) {
                 std::cout << "info string no time left, stopping at depth "
                     << (depth - 1) << "\n";
-                    return finalPV[0];
+                return finalPV[0];
             }
 
             // Estimate cost of next iteration from previous depth
@@ -473,7 +482,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
             lastDepthNodes = nodes;
         }
 
-        int score = negamax(pos, depth, 0,  -100000000, 100000000, pv, pv_len);
+        int score = negamax(pos, depth, 0, -100000000, 100000000, pv, pv_len);
 
 
         // compute ms and nps
