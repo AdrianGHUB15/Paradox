@@ -89,7 +89,61 @@ bool time_up() {
 
     return ms >= TIME_LIMIT_MS;
 }
+uint8_t isEndgameDraw(const Board& pos, Color c) {
+    // Pawns, rooks, or queens mean no material draw.
+    if (pos.pieceBB[WHITE][PAWN] | pos.pieceBB[BLACK][PAWN] |
+        pos.pieceBB[WHITE][ROOK] | pos.pieceBB[BLACK][ROOK] |
+        pos.pieceBB[WHITE][QUEEN] | pos.pieceBB[BLACK][QUEEN])
+        return 0;
 
+    Bitboard whiteB = pos.pieceBB[WHITE][BISHOP];
+    Bitboard blackB = pos.pieceBB[BLACK][BISHOP];
+    Bitboard whiteN = pos.pieceBB[WHITE][KNIGHT];
+    Bitboard blackN = pos.pieceBB[BLACK][KNIGHT];
+
+    int bishopsW = __builtin_popcountll(whiteB);
+    int bishopsB = __builtin_popcountll(blackB);
+    int knightsW = __builtin_popcountll(whiteN);
+    int knightsB = __builtin_popcountll(blackN);
+
+    int minorCount = bishopsW + bishopsB + knightsW + knightsB;
+
+    // K vs K, KB vs K, KN vs K
+    if (minorCount <= 1)
+        return 1;
+
+    // Only adjudicate the four-piece positions below.
+    if (minorCount != 2)
+        return 0;
+
+    // KN vs KN
+    if (knightsW == 1 && knightsB == 1)
+        return 1;
+
+    // KB vs KN
+    if ((bishopsW == 1 && knightsB == 1) ||
+        (bishopsB == 1 && knightsW == 1))
+        return 1;
+
+    // KB vs KB: same-coloured bishop squares
+    if (bishopsW == 1 && bishopsB == 1) {
+        int sqW = __builtin_ctzll(whiteB);
+        int sqB = __builtin_ctzll(blackB);
+
+        bool sameColour =
+            ((sqW / 8 + sqW % 8) % 2) ==
+            ((sqB / 8 + sqB % 8) % 2);
+
+        return sameColour ? 1 : 0;
+    }
+
+    // KNN vs K
+    if ((knightsW == 2 && knightsB == 0) ||
+        (knightsB == 2 && knightsW == 0))
+        return 1;
+
+    return 0;
+}
 void print_info(int depth, int score, int ms,
     uint64_t nodes, uint64_t nps, uint64_t hashfull,
     Move pv[], int pv_len)
@@ -140,6 +194,10 @@ int qsearch(Board& pos, int alpha, int beta) {
         interrupted = true;
         return 0;
     }
+    // Draw due to insufficient material
+    if (isEndgameDraw(pos, pos.stm))
+        return 0;
+
     int standPat = evaluate(pos);
 
     if (standPat >= beta)
@@ -193,6 +251,10 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         interrupted = true;
         return 0;
     }
+
+    // Draw due to insufficient material
+    if (isEndgameDraw(pos, pos.stm))
+        return 0;
 
     if (depth == 0)
         return qsearch(pos, alpha, beta);
@@ -447,7 +509,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
             if (time_left <= 0) {
                 std::cout << "info string no time left, stopping at depth "
                     << (depth - 1) << "\n";
-                    return finalPV[0];
+                return finalPV[0];
             }
 
             // Estimate cost of next iteration from previous depth
@@ -473,7 +535,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
             lastDepthNodes = nodes;
         }
 
-        int score = negamax(pos, depth, 0,  -100000000, 100000000, pv, pv_len);
+        int score = negamax(pos, depth, 0, -100000000, 100000000, pv, pv_len);
 
 
         // compute ms and nps
