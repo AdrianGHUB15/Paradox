@@ -183,6 +183,8 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     nodes++;
 
     int originalAlpha = alpha;
+    bool rootNode = ply == 0;
+    bool PvNode = beta - alpha > 1;
 
     pv_len = 0;
 
@@ -192,6 +194,14 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     if (time_up()) {
         interrupted = true;
         return 0;
+    }
+
+    if (!rootNode) {
+        alpha = std::max(alpha, -MATE + ply);
+        beta = std::min(beta, MATE - ply - 1);
+
+        if (alpha >= beta)
+            return alpha;
     }
 
     if (depth == 0)
