@@ -89,7 +89,7 @@ bool time_up() {
 
     return ms >= TIME_LIMIT_MS;
 }
-uint8_t isEndgameDraw(const Board& pos, Color c) {
+uint8_t isEndgameDraw(const Board& pos) {
     // Pawns, rooks, or queens mean no material draw.
     if (pos.pieceBB[WHITE][PAWN] | pos.pieceBB[BLACK][PAWN] |
         pos.pieceBB[WHITE][ROOK] | pos.pieceBB[BLACK][ROOK] |
