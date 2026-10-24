@@ -207,6 +207,18 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
 
     int eval = evaluate(pos);
 
+    // Reverse Futility Pruning (RFP)
+    if (depth <= 6 &&
+        ply > 0 &&
+        !in_check(pos, pos.stm) &&
+        std::abs(beta) < MATE - 1000) {
+
+        int margin = 100 * depth;
+
+        if (eval - margin >= beta)
+            return eval;
+    }
+
     int bestScore = -100000000;
 
     MoveList list;
