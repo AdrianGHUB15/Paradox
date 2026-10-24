@@ -2,7 +2,7 @@
 #include <iostream>
 #include <algorithm>
 #include <cstdio>
-
+#include <cmath>
 #include "board.h"
 #include "eval.h"
 #include "movegen.h"
@@ -276,14 +276,10 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         if (isCheck)
             extension++;
 
-        if (depth >= 3 && moveCount >= 4 && quiet) {
-            reduction = 1;
+        if (depth >= 3 && moveCount >= 3 && quiet) {
+            reduction = static_cast<int>(0.75 + std::log(depth) * std::log(moveCount) / 2.0);
 
-            if (depth >= 6 && moveCount >= 8)
-                reduction = 2;
-
-            // Never reduce beyond the available child depth.
-            reduction = std::min(reduction, depth - 2);
+            reduction = std::clamp(reduction, 0, depth - 2);
         }
 
         if (moveCount == 1) {
