@@ -2,7 +2,7 @@
 #include "bitboard.h"
 #include "move.h"
 #include "zobrist.h"
-
+#include "search.h"
 #include <cstring>
 
 struct State {
@@ -114,6 +114,7 @@ inline bool in_check(const Board& pos, Color side) {
 
 // make_move / unmake_move
 inline bool Board::make_move(Move m, State& st) {
+    nodes++;
 
     // Save state
     st.castling = castling;

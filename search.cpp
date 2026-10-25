@@ -135,7 +135,6 @@ void print_info(int depth, int score, int ms,
 }
 
 int qsearch(Board& pos, int alpha, int beta) {
-    nodes++;
     if (time_up()) {
         interrupted = true;
         return 0;
@@ -180,8 +179,6 @@ int qsearch(Board& pos, int alpha, int beta) {
     return alpha;
 }
 int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int& pv_len) {
-    nodes++;
-
     int originalAlpha = alpha;
 
     pv_len = 0;
@@ -208,8 +205,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     int eval = evaluate(pos);
 
     // Reverse Futility Pruning (RFP)
-    if (depth <= 6 &&
-        ply > 0 &&
+    if (depth <= 6 && ply > 0 &&
         !in_check(pos, pos.stm) &&
         std::abs(beta) < MATE - 1000) {
 
@@ -262,13 +258,8 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
 
     for (int i = 0; i < list.size; i++) {
         Move m = list.moves[i];
-
-        if (showCurrMove && ply == 0 && (depth >= 12 || nodes >= 10000000)) {
-            std::cout << "info depth " << depth
-                << " currmove " << move_to_string(m)
-                << " currmovenumber " << (i + 1)
-                << " nodes " << nodes << '\n';
-        }
+        Move ParentMove = m;
+        int ParentCurrMove = i + 1;
 
         bool capture = is_capture(m);
         bool promotion = is_promo(m);
@@ -296,6 +287,14 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
 
             // Never reduce beyond the available child depth.
             reduction = std::min(reduction, depth - 2);
+        }
+
+        if (showCurrMove && ply == 0 && depth >= 15) {
+            std::cout << "info depth " << depth
+                << " search depth " << depth + extension - reduction
+                << " currmove " << move_to_string(ParentMove)
+                << " currmovenumber " << ParentCurrMove
+                << " nodes " << nodes << '\n';
         }
 
         if (moveCount == 1) {
@@ -360,12 +359,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         if (pv_len > 0)
             bestMove = pv[0];
 
-        tt_store(pos.hash,
-            depth,
-            ply,
-            bestScore,
-            flag,
-            bestMove);
+        tt_store(pos.hash, depth, ply, bestScore, flag, bestMove);
     }
 
     return bestScore;
