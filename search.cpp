@@ -31,6 +31,9 @@ Move currentPV[128];
 int currentPV_len = 0;
 int currentScore = 0;
 
+static constexpr int ASPIRATION_WINDOW = 25;
+static constexpr int ASPIRATION_MAX_WINDOW = 1000;
+
 static constexpr int PieceValue[6] = {
     100,   // pawn
     320,   // knight
@@ -479,8 +482,32 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
             lastDepthNodes = nodes;
         }
 
-        int score = negamax(pos, depth, 0,  -100000000, 100000000, pv, pv_len);
+        int alpha = -100000000;
+        int beta = 100000000;
+        int score;
 
+        if (depth >= 4 && finalPV_len > 0) {
+            alpha = finalScore - ASPIRATION_WINDOW;
+            beta = finalScore + ASPIRATION_WINDOW;
+        }
+
+        while (true) {
+            score = negamax(pos, depth, 0, alpha, beta, pv, pv_len);
+
+            if (interrupted)
+                break;
+
+            if (score <= alpha) {
+                alpha = std::max(-100000000, alpha - ASPIRATION_MAX_WINDOW);
+                beta = (alpha + beta) / 2;
+            }
+            else if (score >= beta) {
+                beta = std::min(100000000, beta + ASPIRATION_MAX_WINDOW);
+            }
+            else {
+                break;
+            }
+        }
 
         // compute ms and nps
         auto dend = std::chrono::steady_clock::now();
