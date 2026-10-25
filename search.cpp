@@ -31,8 +31,7 @@ Move currentPV[128];
 int currentPV_len = 0;
 int currentScore = 0;
 
-static constexpr int ASPIRATION_WINDOW = 25;
-static constexpr int ASPIRATION_MAX_WINDOW = 1000;
+static constexpr int ASPIRATION_WINDOW = 5;
 
 static constexpr int PieceValue[6] = {
     100,   // pawn
@@ -95,7 +94,7 @@ bool time_up() {
 
 void print_info(int depth, int score, int ms,
     uint64_t nodes, uint64_t nps, uint64_t hashfull,
-    Move pv[], int pv_len)
+    Move pv[], int pv_len, const char* bound = nullptr)
 {
     auto is_mate = [&](int s) {
         return s >= MATE - 1000;   // delivering mate
@@ -121,6 +120,9 @@ void print_info(int depth, int score, int ms,
     else {
         printf(" score cp %d", score);
     }
+
+    if (bound != nullptr && depth >= 15)
+        printf(" %s", bound);
 
     printf(" time %d nodes %llu nps %llu hashfull %llu pv",
         ms,
@@ -491,18 +493,38 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
             beta = finalScore + ASPIRATION_WINDOW;
         }
 
+        const int initialAlpha = alpha;
+        const int initialBeta = beta;
+
+        const char* bound = nullptr;
+
         while (true) {
             score = negamax(pos, depth, 0, alpha, beta, pv, pv_len);
 
             if (interrupted)
                 break;
 
+            // Calculate current search statistics for this retry.
+            auto now = std::chrono::steady_clock::now();
+
+            int ms = (int)std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
+
+            if (ms == 0) ms = 1;
+
+            uint64_t nps = nodes * 1000ULL / ms;
+
             if (score <= alpha) {
-                alpha = std::max(-100000000, alpha - ASPIRATION_MAX_WINDOW);
+                if (depth >= 15)
+                    print_info(depth, score, ms, nodes, nps, tt_hashfull(), pv, pv_len, "upperbound");
+
                 beta = (alpha + beta) / 2;
+                alpha = std::max(-100000000, alpha - ASPIRATION_WINDOW);
             }
             else if (score >= beta) {
-                beta = std::min(100000000, beta + ASPIRATION_MAX_WINDOW);
+                if (depth >= 15)
+                    print_info(depth, score, ms, nodes, nps, tt_hashfull(), pv, pv_len, "lowerbound");
+
+                beta = std::min(100000000, beta + ASPIRATION_WINDOW);
             }
             else {
                 break;
