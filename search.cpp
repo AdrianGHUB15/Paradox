@@ -136,51 +136,78 @@ void print_info(int depth, int score, int ms,
     printf("\n");
     fflush(stdout);
 }
-
-int qsearch(Board& pos, int alpha, int beta) {
+int qsearch(Board& pos, int alpha, int beta, int ply) {
     if (time_up()) {
         interrupted = true;
         return 0;
     }
-    int standPat = evaluate(pos);
 
-    if (standPat >= beta)
-        return beta;
+    if (pos.is_repetition() && ply > 0)
+        return 0;
 
-    if (standPat > alpha)
-        alpha = standPat;
+    bool inCheck = in_check(pos, pos.stm);
 
     MoveList list;
     generate_legal(pos, list);
 
-    for (int i = 0; i < list.size; i++) {
+    if (list.size == 0) {
+        if (inCheck)
+            return -MATE + ply;
 
+        return 0; // Stalemate
+    }
+
+    int standPat = -100000000;
+    int bestScore = -100000000;
+
+    if (!inCheck) {
+        standPat = evaluate(pos);
+        bestScore = standPat;
+
+        // Fail-soft beta cutoff.
+        if (standPat >= beta)
+            return standPat;
+
+        if (standPat > alpha)
+            alpha = standPat;
+    }
+
+    for (int i = 0; i < list.size; ++i) {
         Move m = list.moves[i];
 
+        bool capture = is_capture(m);
+        bool promotion = is_promo(m);
+
+        if (!inCheck && !capture && !promotion)
+            continue;
+
+        // SEE pruning is disabled for check evasions and promotions.
+        if (!inCheck && capture && !promotion && see(pos, m) < -50)
+            continue;
+
         State st;
-
-        if (!is_capture(m))
-            continue;
-
-        // SEE pruning
-        if (see(pos, m) < -50)
-            continue;
-
         pos.make_move(m, st);
 
-        int score = -qsearch(pos, -beta, -alpha);
+        int score = -qsearch(pos, -beta, -alpha, ply + 1);
 
         pos.unmake_move(st);
 
-        if (score >= beta)
-            return beta;
+        if (interrupted)
+            return 0;
+
+        if (score > bestScore)
+            bestScore = score;
 
         if (score > alpha)
             alpha = score;
+
+        if (alpha >= beta)
+            return score;
     }
 
-    return alpha;
+    return bestScore;
 }
+
 int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int& pv_len) {
     int originalAlpha = alpha;
 
@@ -194,8 +221,8 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         return 0;
     }
 
-    if (depth == 0)
-        return qsearch(pos, alpha, beta);
+    if (depth <= 0)
+        return qsearch(pos, alpha, beta, ply);
 
     Move ttMove = 0;
     int ttScore = 0;
