@@ -158,3 +158,55 @@ void Board::print() const {
     }
     std::printf("  a b c d e f g h\n");
 }
+
+int Board::non_pawn_material(Color c) const {
+    return 320 * __builtin_popcountll(pieceBB[c][KNIGHT])
+        + 330 * __builtin_popcountll(pieceBB[c][BISHOP])
+        + 500 * __builtin_popcountll(pieceBB[c][ROOK])
+        + 900 * __builtin_popcountll(pieceBB[c][QUEEN]);
+}
+
+void Board::make_null_move(State& st) {
+    // Save the current state.
+    st.castling = castling;
+    st.epSquare = epSquare;
+    st.halfmoveClock = halfmoveClock;
+    st.kingSq[WHITE] = kingSq[WHITE];
+    st.kingSq[BLACK] = kingSq[BLACK];
+
+    std::memcpy(st.pieceBB, pieceBB, sizeof(pieceBB));
+    std::memcpy(st.colorBB, colorBB, sizeof(colorBB));
+
+    st.occupiedBB = occupiedBB;
+    st.hash = hash;
+    st.stm = stm;
+
+    // Clear en passant, updating its hash contribution.
+    if (epSquare != -1)
+        hash ^= Z_EP[epSquare & 7];
+
+    epSquare = -1;
+
+    // A null move advances the halfmove clock.
+    ++halfmoveClock;
+
+    // Switch the side to move.
+    stm = Color(stm ^ 1);
+    hash ^= Z_STM;
+}
+
+void Board::unmake_null_move(const State& st) {
+    castling = st.castling;
+    epSquare = st.epSquare;
+    halfmoveClock = st.halfmoveClock;
+
+    kingSq[WHITE] = st.kingSq[WHITE];
+    kingSq[BLACK] = st.kingSq[BLACK];
+
+    std::memcpy(pieceBB, st.pieceBB, sizeof(pieceBB));
+    std::memcpy(colorBB, st.colorBB, sizeof(colorBB));
+
+    occupiedBB = st.occupiedBB;
+    hash = st.hash;
+    stm = st.stm;
+}

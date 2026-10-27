@@ -31,6 +31,9 @@ Move currentPV[128];
 int currentPV_len = 0;
 int currentScore = 0;
 
+uint64_t nmp_attempts = 0;
+uint64_t nmp_cutoffs = 0;
+
 static constexpr int ASPIRATION_WINDOW = 25;
 static constexpr int ASPIRATION_MAX_WINDOW = 1000;
 
@@ -181,7 +184,7 @@ int qsearch(Board& pos, int alpha, int beta) {
 
     return alpha;
 }
-int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int& pv_len) {
+int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int& pv_len, bool allowNullMove = true) {
     int originalAlpha = alpha;
 
     pv_len = 0;
@@ -216,6 +219,48 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
 
         if (eval - margin >= beta)
             return eval;
+    }
+
+    // Null-Move Pruning
+    if (allowNullMove &&
+        depth >= 3 &&
+        ply > 0 &&
+        !in_check(pos, pos.stm) &&
+        pos.non_pawn_material(pos.stm) > 0 &&
+        beta == alpha + 1 &&
+        std::abs(beta) < MATE - 1000 &&
+        eval >= beta) {
+
+        int reduction = 2 + depth / 4;
+
+        ++nmp_attempts;
+
+        State nullState;
+        pos.make_null_move(nullState);
+
+        Move nullPV[128];
+        int nullPVLen = 0;
+
+        int score = -negamax(
+            pos,
+            depth - 1 - reduction,
+            ply + 1,
+            -beta,
+            -beta + 1,
+            nullPV,
+            nullPVLen,
+            false
+        );
+
+        pos.unmake_null_move(nullState);
+
+        if (interrupted)
+            return 0;
+
+        if (score >= beta) {
+            ++nmp_cutoffs;
+            return score;
+        }
     }
 
     int bestScore = -100000000;
@@ -437,7 +482,8 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
     // reported nodes/nps and the elapsed time refer to the same interval.
     nodes = 0;
     NODE_LIMIT = limits.nodes;
-
+    nmp_attempts = 0;
+    nmp_cutoffs = 0;
     uint64_t lastDepthNodes = 0;
 
 
@@ -528,6 +574,8 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
                 finalPV[i] = pv[i];
 
             print_info(depth, score, ms, nodes, nps, tt_hashfull(), pv, pv_len);
+            std::cout << "info string NMP attempts " << nmp_attempts
+                << " cutoffs " << nmp_cutoffs << '\n';
             continue;
         }
 
