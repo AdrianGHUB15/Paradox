@@ -30,9 +30,34 @@ int finalScore = 0;
 Move currentPV[128];
 int currentPV_len = 0;
 int currentScore = 0;
+uint64_t nodes_printing = 10000000ULL;
+
+int VALUE_INFINITE = MATE + 1;
+int VALUE_NEGATIVE_INF = -VALUE_INFINITE;
+
+int seldepth = 0;
+int currentSeldepth = 0;
+int finalSeldepth = 0;
 
 static constexpr int ASPIRATION_WINDOW = 25;
 static constexpr int ASPIRATION_MAX_WINDOW = 1000;
+
+uint64_t elapsed_ms() {
+    return static_cast<uint64_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - startTime
+        ).count()
+        );
+}
+
+uint64_t update_nps() {
+    uint64_t ms = elapsed_ms();
+
+    if (ms == 0)
+        ms = 1;
+
+    return nodes * 1000ULL / ms;
+}
 
 static constexpr int PieceValue[6] = {
     100,   // pawn
@@ -93,9 +118,9 @@ bool time_up() {
     return ms >= TIME_LIMIT_MS;
 }
 
-void print_info(int depth, int score, int ms,
+void print_info(int depth, int seldepth, int score, uint64_t ms,
     uint64_t nodes, uint64_t nps, uint64_t hashfull,
-    Move pv[], int pv_len)
+    Move pv[], int pv_len, const char* bound = nullptr)
 {
     auto is_mate = [&](int s) {
         return s >= MATE - 1000;   // delivering mate
@@ -110,7 +135,7 @@ void print_info(int depth, int score, int ms,
         return (plies + 1) / 2;
         };
 
-    printf("info depth %d", depth);
+    printf("info depth %d seldepth %d", depth, seldepth);
 
     if (is_mate(score)) {
         printf(" score mate %d", score_to_mate(score));
@@ -122,11 +147,14 @@ void print_info(int depth, int score, int ms,
         printf(" score cp %d", score);
     }
 
-    printf(" time %d nodes %llu nps %llu hashfull %llu pv",
-        ms,
-        (unsigned long long)nodes,
-        (unsigned long long)nps,
-        (unsigned long long)hashfull);
+    if (bound != nullptr && depth >= 15)
+        printf(" %s", bound);
+
+    printf(" time %llu nodes %llu nps %llu hashfull %llu pv",
+        static_cast<unsigned long long>(ms),
+        static_cast<unsigned long long>(nodes),
+        static_cast<unsigned long long>(nps),
+        static_cast<unsigned long long>(hashfull));
 
     for (int i = 0; i < pv_len; i++) {
         std::string s = move_to_string(pv[i]);
@@ -137,7 +165,9 @@ void print_info(int depth, int score, int ms,
     fflush(stdout);
 }
 
-int qsearch(Board& pos, int alpha, int beta) {
+int qsearch(Board& pos, int alpha, int beta, int ply) {
+    seldepth = std::max(seldepth, ply);
+
     if (time_up()) {
         interrupted = true;
         return 0;
@@ -168,7 +198,7 @@ int qsearch(Board& pos, int alpha, int beta) {
 
         pos.make_move(m, st);
 
-        int score = -qsearch(pos, -beta, -alpha);
+        int score = -qsearch(pos, -beta, -alpha, ply + 1);
 
         pos.unmake_move(st);
 
@@ -182,9 +212,13 @@ int qsearch(Board& pos, int alpha, int beta) {
     return alpha;
 }
 int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int& pv_len) {
+
     int originalAlpha = alpha;
+
     bool rootNode = ply == 0;
     bool PvNode = beta - alpha > 1;
+
+    seldepth = std::max(seldepth, ply);
 
     pv_len = 0;
 
@@ -195,6 +229,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         interrupted = true;
         return 0;
     }
+
     if (!rootNode) {
         alpha = std::max(alpha, -MATE + ply);
         beta = std::min(beta, MATE - ply - 1);
@@ -202,8 +237,9 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         if (alpha >= beta)
             return alpha;
     }
+
     if (depth == 0)
-        return qsearch(pos, alpha, beta);
+        return qsearch(pos, alpha, beta, ply);
 
     Move ttMove = 0;
     int ttScore = 0;
@@ -300,7 +336,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
             reduction = std::min(reduction, depth - 2);
         }
 
-        if (showCurrMove && ply == 0 && nodes > 10000000) {
+        if (showCurrMove && ply == 0 && nodes > nodes_printing) {
             std::cout << "info depth " << depth
                 << " search depth " << depth + extension - reduction
                 << " currmove " << move_to_string(ParentMove)
@@ -451,6 +487,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
 
     for (int depth = 1; depth <= (limits.depth > 0 ? limits.depth : 99); depth++) {
         interrupted = false;
+        seldepth = 0;
 
         // --- TIME MANAGEMENT: stop if we can't afford depth+1 ---
         if (timeManaged && !limits.movetime && depth >= 2 && finalPV_len > 0) {
@@ -490,8 +527,8 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
             lastDepthNodes = nodes;
         }
 
-        int alpha = -100000000;
-        int beta = 100000000;
+        int alpha = VALUE_NEGATIVE_INF;
+        int beta = VALUE_INFINITE;
         int score;
 
         if (depth >= 4 && finalPV_len > 0) {
@@ -505,58 +542,66 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
             if (interrupted)
                 break;
 
+            // Calculate current search statistics for this retry.
+            uint64_t ms = elapsed_ms();
+            uint64_t nps = update_nps();
+
             if (score <= alpha) {
-                alpha = std::max(-100000000, alpha - ASPIRATION_MAX_WINDOW);
+                if (nodes > nodes_printing)
+                    print_info(depth, seldepth, score, ms, nodes, nps, tt_hashfull(), pv, pv_len, "upperbound");
+                
+                alpha = std::max(VALUE_NEGATIVE_INF, alpha - ASPIRATION_MAX_WINDOW);
                 beta = (alpha + beta) / 2;
             }
             else if (score >= beta) {
-                beta = std::min(100000000, beta + ASPIRATION_MAX_WINDOW);
+                if (nodes > nodes_printing)
+                    print_info(depth, seldepth, score, ms, nodes, nps, tt_hashfull(), pv, pv_len, "lowerbound");
+                
+                beta = std::min(VALUE_INFINITE, beta + ASPIRATION_MAX_WINDOW);
             }
             else {
                 break;
             }
         }
 
-        // compute ms and nps
-        auto dend = std::chrono::steady_clock::now();
-        int ms = (int)std::chrono::duration_cast<std::chrono::milliseconds>(dend - startTime).count();
-        if (ms == 0) ms = 1;
-        uint64_t nps = nodes * 1000 / ms;
+        uint64_t ms = elapsed_ms();
+        uint64_t nps = update_nps();
 
-        // Save current depth PV (even if interrupted)
+        // Save current depth PV and selective depth
         currentScore = score;
         currentPV_len = pv_len;
+        currentSeldepth = seldepth;
+
         for (int i = 0; i < pv_len; i++)
             currentPV[i] = pv[i];
 
         if (!interrupted) {
             finalScore = score;
             finalPV_len = pv_len;
+            finalSeldepth = seldepth;
+
             for (int i = 0; i < pv_len; i++)
                 finalPV[i] = pv[i];
 
-            print_info(depth, score, ms, nodes, nps, tt_hashfull(), pv, pv_len);
+            print_info(depth, finalSeldepth, score, ms, nodes, nps, tt_hashfull(), pv, pv_len);
+
             continue;
         }
 
         if (interrupted && (timeManaged || limits.nodes > 0)) {
 
-            // 1. Print interruption message
             std::cout << "info string search finished before depth "
                 << depth << " was completed, falling back to depth "
                 << (depth - 1) << "\n";
 
-            // 2. Print depth D only if it has a PV
             if (currentPV_len > 0)
-                print_info(depth, currentScore, ms, nodes, nps, tt_hashfull(),
-                    currentPV, currentPV_len);
+                print_info(depth, currentSeldepth, currentScore, ms, nodes, nps, tt_hashfull(), currentPV, currentPV_len);
+            
 
-            // 3. Print depth D-1 full info
-            print_info(depth - 1, finalScore, ms, nodes, nps, tt_hashfull(),
-                finalPV, finalPV_len);
+            if (finalPV_len > 0) 
+                print_info(depth - 1, finalSeldepth, finalScore, ms, nodes, nps, tt_hashfull(), finalPV, finalPV_len);
 
-            // 4. Return best move from last completed depth
-            return finalPV[0];
+            return finalPV_len > 0 ? finalPV[0] : bestMove;
         }
 
         if (time_up())
@@ -566,14 +611,12 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
             break;
     }
     if (limits.bench_mode) {
-        auto end = std::chrono::steady_clock::now();
-        uint64_t ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - startTime).count();
-        if (ms == 0) ms = 1;
+        uint64_t ms = elapsed_ms();
+        uint64_t nps = update_nps();
 
-        uint64_t nps = (nodes * 1000ULL) / ms;
+        std::cout << "info string bench summary: "
+            << nodes << " nodes " << nps << " nps\n";
 
-        std::cout << "info string bench summary: " << nodes << " nodes " << nps << " nps\n";
-        // Trailing "<n> nodes <n> nps" is what OpenBench scrapes.
         std::cout << "bench: " << ms << " ms "
             << nodes << " nodes "
             << nps << " nps" << std::endl;
