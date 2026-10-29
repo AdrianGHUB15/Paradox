@@ -40,7 +40,6 @@ int currentSeldepth = 0;
 int finalSeldepth = 0;
 
 static constexpr int ASPIRATION_WINDOW = 25;
-static constexpr int ASPIRATION_MAX_WINDOW = 1000;
 
 uint64_t elapsed_ms() {
     return static_cast<uint64_t>(
@@ -550,14 +549,14 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
                 if (nodes > nodes_printing)
                     print_info(depth, seldepth, score, ms, nodes, nps, tt_hashfull(), pv, pv_len, "upperbound");
                 
-                alpha = std::max(VALUE_NEGATIVE_INF, alpha - ASPIRATION_MAX_WINDOW);
+                alpha = std::max(VALUE_NEGATIVE_INF, alpha - ASPIRATION_WINDOW);
                 beta = (alpha + beta) / 2;
             }
             else if (score >= beta) {
                 if (nodes > nodes_printing)
                     print_info(depth, seldepth, score, ms, nodes, nps, tt_hashfull(), pv, pv_len, "lowerbound");
                 
-                beta = std::min(VALUE_INFINITE, beta + ASPIRATION_MAX_WINDOW);
+                beta = std::min(VALUE_INFINITE, beta + ASPIRATION_WINDOW);
             }
             else {
                 break;
