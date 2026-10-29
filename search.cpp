@@ -183,6 +183,8 @@ int qsearch(Board& pos, int alpha, int beta) {
 }
 int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int& pv_len) {
     int originalAlpha = alpha;
+    bool rootNode = ply == 0;
+    bool PvNode = beta - alpha > 1;
 
     pv_len = 0;
 
@@ -193,7 +195,13 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         interrupted = true;
         return 0;
     }
+    if (!rootNode) {
+        alpha = std::max(alpha, -MATE + ply);
+        beta = std::min(beta, MATE - ply - 1);
 
+        if (alpha >= beta)
+            return alpha;
+    }
     if (depth == 0)
         return qsearch(pos, alpha, beta);
 
@@ -208,7 +216,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     int eval = evaluate(pos);
 
     // Reverse Futility Pruning (RFP)
-    if (depth <= 6 && ply > 0 &&
+    if (depth <= 6 && !rootNode &&
         !in_check(pos, pos.stm) &&
         std::abs(beta) < MATE - 1000) {
 
@@ -292,7 +300,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
             reduction = std::min(reduction, depth - 2);
         }
 
-        if (showCurrMove && ply == 0 && depth >= 15) {
+        if (showCurrMove && ply == 0 && nodes > 10000000) {
             std::cout << "info depth " << depth
                 << " search depth " << depth + extension - reduction
                 << " currmove " << move_to_string(ParentMove)
