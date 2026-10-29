@@ -30,7 +30,7 @@ int finalScore = 0;
 Move currentPV[128];
 int currentPV_len = 0;
 int currentScore = 0;
-uint64_t nodes_printing = 10000000;
+uint64_t nodes_printing = 10000000ULL;
 
 int VALUE_INFINITE = MATE + 1;
 int VALUE_NEGATIVE_INF = -VALUE_INFINITE;
@@ -43,9 +43,11 @@ static constexpr int ASPIRATION_WINDOW = 25;
 static constexpr int ASPIRATION_MAX_WINDOW = 1000;
 
 uint64_t elapsed_ms() {
-    return std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::steady_clock::now() - startTime
-    ).count();
+    return static_cast<uint64_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - startTime
+        ).count()
+        );
 }
 
 uint64_t update_nps() {
@@ -116,7 +118,7 @@ bool time_up() {
     return ms >= TIME_LIMIT_MS;
 }
 
-void print_info(int depth, int seldepth, int score, int ms,
+void print_info(int depth, int seldepth, int score, uint64_t ms,
     uint64_t nodes, uint64_t nps, uint64_t hashfull,
     Move pv[], int pv_len, const char* bound = nullptr)
 {
@@ -148,11 +150,11 @@ void print_info(int depth, int seldepth, int score, int ms,
     if (bound != nullptr && depth >= 15)
         printf(" %s", bound);
 
-    printf(" time %d nodes %llu nps %llu hashfull %llu pv",
-        ms,
-        (unsigned long long)nodes,
-        (unsigned long long)nps,
-        (unsigned long long)hashfull);
+    printf(" time %llu nodes %llu nps %llu hashfull %llu pv",
+        static_cast<unsigned long long>(ms),
+        static_cast<unsigned long long>(nodes),
+        static_cast<unsigned long long>(nps),
+        static_cast<unsigned long long>(hashfull));
 
     for (int i = 0; i < pv_len; i++) {
         std::string s = move_to_string(pv[i]);
@@ -534,11 +536,6 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
             beta = finalScore + ASPIRATION_WINDOW;
         }
 
-        const int initialAlpha = alpha;
-        const int initialBeta = beta;
-
-        const char* bound = nullptr;
-
         while (true) {
             score = negamax(pos, depth, 0, alpha, beta, pv, pv_len);
 
@@ -551,16 +548,16 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
 
             if (score <= alpha) {
                 if (nodes > nodes_printing)
-                    print_info(depth, seldepth, score, (int)ms, nodes, nps, tt_hashfull(), pv, pv_len, "upperbound");
+                    print_info(depth, seldepth, score, ms, nodes, nps, tt_hashfull(), pv, pv_len, "upperbound");
                 
+                alpha = std::max(VALUE_NEGATIVE_INF, alpha - ASPIRATION_MAX_WINDOW);
                 beta = (alpha + beta) / 2;
-                alpha = std::max(VALUE_NEGATIVE_INF, alpha - ASPIRATION_WINDOW);
             }
             else if (score >= beta) {
                 if (nodes > nodes_printing)
-                    print_info(depth, seldepth, score, (int)ms, nodes, nps, tt_hashfull(), pv, pv_len, "lowerbound");
+                    print_info(depth, seldepth, score, ms, nodes, nps, tt_hashfull(), pv, pv_len, "lowerbound");
                 
-                beta = std::min(VALUE_INFINITE, beta + ASPIRATION_WINDOW);
+                beta = std::min(VALUE_INFINITE, beta + ASPIRATION_MAX_WINDOW);
             }
             else {
                 break;
@@ -586,7 +583,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
             for (int i = 0; i < pv_len; i++)
                 finalPV[i] = pv[i];
 
-            print_info(depth, finalSeldepth, score, (int)ms, nodes, nps, tt_hashfull(), pv, pv_len);
+            print_info(depth, finalSeldepth, score, ms, nodes, nps, tt_hashfull(), pv, pv_len);
 
             continue;
         }
@@ -598,11 +595,11 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
                 << (depth - 1) << "\n";
 
             if (currentPV_len > 0)
-                print_info(depth, currentSeldepth, currentScore, (int)ms, nodes, nps, tt_hashfull(), currentPV, currentPV_len);
+                print_info(depth, currentSeldepth, currentScore, ms, nodes, nps, tt_hashfull(), currentPV, currentPV_len);
             
 
             if (finalPV_len > 0) 
-                print_info(depth - 1, finalSeldepth, finalScore, (int)ms, nodes, nps, tt_hashfull(), finalPV, finalPV_len);
+                print_info(depth - 1, finalSeldepth, finalScore, ms, nodes, nps, tt_hashfull(), finalPV, finalPV_len);
 
             return finalPV_len > 0 ? finalPV[0] : bestMove;
         }
