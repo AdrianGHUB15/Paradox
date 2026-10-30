@@ -42,6 +42,8 @@ int finalSeldepth = 0;
 static constexpr int ASPIRATION_WINDOW = 25;
 static constexpr int ASPIRATION_MAX_WINDOW = 1000;
 
+int rootDepth = 0;
+
 uint64_t elapsed_ms() {
     return static_cast<uint64_t>(
         std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -488,6 +490,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
     for (int depth = 1; depth <= (limits.depth > 0 ? limits.depth : 99); depth++) {
         interrupted = false;
         seldepth = 0;
+        rootDepth = depth;
 
         // --- TIME MANAGEMENT: stop if we can't afford depth+1 ---
         if (timeManaged && !limits.movetime && depth >= 2 && finalPV_len > 0) {
@@ -530,6 +533,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
         int alpha = VALUE_NEGATIVE_INF;
         int beta = VALUE_INFINITE;
         int score;
+        int FailedhighCntr = 0;
 
         if (depth >= 4 && finalPV_len > 0) {
             alpha = finalScore - ASPIRATION_WINDOW;
@@ -537,7 +541,9 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
         }
 
         while (true) {
-            score = negamax(pos, depth, 0, alpha, beta, pv, pv_len);
+            int adjustedDepth = std::max(1, rootDepth - FailedhighCntr);
+
+            score = negamax(pos, adjustedDepth, 0, alpha, beta, pv, pv_len);
 
             if (interrupted)
                 break;
@@ -548,16 +554,20 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
 
             if (score <= alpha) {
                 if (nodes > nodes_printing)
-                    print_info(depth, seldepth, score, ms, nodes, nps, tt_hashfull(), pv, pv_len, "upperbound");
+                    print_info(rootDepth, seldepth, score, ms, nodes, nps, tt_hashfull(), pv, pv_len, "upperbound");
                 
                 alpha = std::max(VALUE_NEGATIVE_INF, alpha - ASPIRATION_MAX_WINDOW);
                 beta = (alpha + beta) / 2;
+
+                FailedhighCntr = 0;
             }
             else if (score >= beta) {
                 if (nodes > nodes_printing)
-                    print_info(depth, seldepth, score, ms, nodes, nps, tt_hashfull(), pv, pv_len, "lowerbound");
+                    print_info(rootDepth, seldepth, score, ms, nodes, nps, tt_hashfull(), pv, pv_len, "lowerbound");
                 
                 beta = std::min(VALUE_INFINITE, beta + ASPIRATION_MAX_WINDOW);
+
+                FailedhighCntr++;
             }
             else {
                 break;
@@ -583,7 +593,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
             for (int i = 0; i < pv_len; i++)
                 finalPV[i] = pv[i];
 
-            print_info(depth, finalSeldepth, score, ms, nodes, nps, tt_hashfull(), pv, pv_len);
+            print_info(rootDepth, finalSeldepth, score, ms, nodes, nps, tt_hashfull(), pv, pv_len);
 
             continue;
         }
@@ -595,11 +605,11 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
                 << (depth - 1) << "\n";
 
             if (currentPV_len > 0)
-                print_info(depth, currentSeldepth, currentScore, ms, nodes, nps, tt_hashfull(), currentPV, currentPV_len);
+                print_info(rootDepth, currentSeldepth, currentScore, ms, nodes, nps, tt_hashfull(), currentPV, currentPV_len);
             
 
             if (finalPV_len > 0) 
-                print_info(depth - 1, finalSeldepth, finalScore, ms, nodes, nps, tt_hashfull(), finalPV, finalPV_len);
+                print_info(rootDepth - 1, finalSeldepth, finalScore, ms, nodes, nps, tt_hashfull(), finalPV, finalPV_len);
 
             return finalPV_len > 0 ? finalPV[0] : bestMove;
         }
