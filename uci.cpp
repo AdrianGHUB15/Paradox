@@ -1,5 +1,7 @@
 ﻿#define _CRT_SECURE_NO_WARNINGS
 
+#include <algorithm>
+#include <cstdlib>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -14,6 +16,7 @@
 #include "tt.h"
 
 static Board g_board;
+static int g_multiPV = 1;
 extern bool stopRequested;
 extern bool infiniteSearch;
 
@@ -140,6 +143,23 @@ static void cmd_setoption(const std::string& line) {
 
         return;
     }
+
+    if (name == "MultiPV") {
+        char* end = nullptr;
+        long requested = std::strtol(value.c_str(), &end, 10);
+
+        if (end == value.c_str() || *end != '\0') {
+            std::cout << "info string Invalid MultiPV value\n";
+            return;
+        }
+
+        requested = std::max(1L, std::min(256L, requested));
+        g_multiPV = static_cast<int>(requested);
+
+        std::cout << "info string MultiPV set to "
+            << g_multiPV << "\n";
+        return;
+    }
 }
 
 // POSITION command
@@ -181,6 +201,7 @@ static void cmd_go(const std::string& line) {
     tt_clear();
 
     SearchLimits limits;
+    limits.multipv = g_multiPV;
 
     std::istringstream iss(line);
     std::string tok;
@@ -249,6 +270,8 @@ void uci_loop() {
             std::cout << "id author Adrian Ladoni\n";
             std::cout << "option name Hash type spin default 16 min 1 max 131072\n";
             std::cout << "option name Threads type spin default 1 min 1 max 1\n";
+            std::cout << "option name Clear Hash type button\n";
+            std::cout << "option name MultiPV type spin default 1 min 1 max 256\n";
             std::cout << "uciok\n";
         }
         else if (line == "isready") {
