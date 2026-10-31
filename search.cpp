@@ -2,6 +2,7 @@
 #include <iostream>
 #include <algorithm>
 #include <cstdio>
+#include <cassert>
 
 #include "board.h"
 #include "eval.h"
@@ -32,8 +33,9 @@ int currentPV_len = 0;
 int currentScore = 0;
 uint64_t nodes_printing = 10000000ULL;
 
+constexpr int MAX_PLY = 128;
+
 int VALUE_INFINITE = MATE + 1;
-int VALUE_NEGATIVE_INF = -VALUE_INFINITE;
 
 int seldepth = 0;
 int currentSeldepth = 0;
@@ -41,6 +43,14 @@ int finalSeldepth = 0;
 
 static constexpr int ASPIRATION_WINDOW = 25;
 static constexpr int ASPIRATION_MAX_WINDOW = 1000;
+
+int rootDepth = 0;
+
+enum NodeType {
+    NonPV,
+    PV,
+    Root
+};
 
 uint64_t elapsed_ms() {
     return static_cast<uint64_t>(
@@ -96,6 +106,18 @@ int move_score(Board& pos, Move m, int ply) {
     return history[from_sq(m)][to_sq(m)];
 }
 
+bool is_win(int score) {
+    return score >= MATE - 1000;
+}
+
+bool is_loss(int score) {
+    return score <= -MATE + 1000;
+}
+
+bool is_decisive(int score) {
+    return is_win(score) || is_loss(score);
+}
+
 bool time_up() {
     if (stopRequested)
         return true;
@@ -147,7 +169,7 @@ void print_info(int depth, int seldepth, int score, uint64_t ms,
         printf(" score cp %d", score);
     }
 
-    if (bound != nullptr && depth >= 15)
+    if (bound != nullptr && nodes > nodes_printing)
         printf(" %s", bound);
 
     printf(" time %llu nodes %llu nps %llu hashfull %llu pv",
@@ -165,13 +187,23 @@ void print_info(int depth, int seldepth, int score, uint64_t ms,
     fflush(stdout);
 }
 
+template<NodeType nodeType>
 int qsearch(Board& pos, int alpha, int beta, int ply) {
+
+    static_assert(nodeType != Root);
+
+    constexpr bool PvNode = nodeType == PV;
+
+    assert(alpha >= -VALUE_INFINITE && alpha < beta && beta <= VALUE_INFINITE);
+    assert(PvNode || alpha == beta - 1);
+
     seldepth = std::max(seldepth, ply);
 
     if (time_up()) {
         interrupted = true;
         return 0;
     }
+
     int standPat = evaluate(pos);
 
     if (standPat >= beta)
@@ -187,20 +219,21 @@ int qsearch(Board& pos, int alpha, int beta, int ply) {
 
         Move m = list.moves[i];
 
-        State st;
-
         if (!is_capture(m))
             continue;
 
-        // SEE pruning
         if (see(pos, m) < -50)
             continue;
 
+        State st;
         pos.make_move(m, st);
 
-        int score = -qsearch(pos, -beta, -alpha, ply + 1);
+        int score = -qsearch<NonPV>(pos, -beta, -alpha, ply + 1);
 
         pos.unmake_move(st);
+
+        if (interrupted)
+            return 0;
 
         if (score >= beta)
             return beta;
@@ -211,12 +244,14 @@ int qsearch(Board& pos, int alpha, int beta, int ply) {
 
     return alpha;
 }
-int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int& pv_len) {
+template<NodeType nodeType>
+int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int& pv_len, bool cutNode) {
 
     int originalAlpha = alpha;
 
-    bool rootNode = ply == 0;
-    bool PvNode = beta - alpha > 1;
+    constexpr bool PvNode = nodeType != NonPV;
+    constexpr bool rootNode = nodeType == Root;
+    const bool allNode = !(PvNode || cutNode);
 
     seldepth = std::max(seldepth, ply);
 
@@ -238,8 +273,16 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
             return alpha;
     }
 
-    if (depth == 0)
-        return qsearch(pos, alpha, beta, ply);
+    if (depth <= 0)
+        return qsearch<PvNode ? PV : NonPV>(pos, alpha, beta, ply);
+
+
+    depth = std::min(depth, MAX_PLY - 1);
+
+    assert(-VALUE_INFINITE <= alpha && alpha < beta && beta <= VALUE_INFINITE);
+    assert(PvNode || (alpha == beta - 1));
+    assert(0 < depth && depth < MAX_PLY);
+    assert(!(PvNode && cutNode));
 
     Move ttMove = 0;
     int ttScore = 0;
@@ -252,15 +295,9 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     int eval = evaluate(pos);
 
     // Reverse Futility Pruning (RFP)
-    if (depth <= 6 && !rootNode &&
-        !in_check(pos, pos.stm) &&
-        std::abs(beta) < MATE - 1000) {
-
-        int margin = 100 * depth;
-
-        if (eval - margin >= beta)
-            return eval;
-    }
+    if (depth <= 6 && !rootNode && !in_check(pos, pos.stm) && !is_decisive(beta) && beta <= eval - 100 * depth)
+        return eval;
+    
 
     int bestScore = -100000000;
 
@@ -344,19 +381,19 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
                 << " nodes " << nodes << '\n';
         }
 
-        if (moveCount == 1) {
-            score = -negamax(pos, depth - 1 + extension, ply + 1, -beta, -alpha, childPV, childPV_len);
+        if (moveCount == 1 && PvNode) {
+            score = -negamax<PV>(pos, depth - 1 + extension, ply + 1, -beta, -alpha, childPV, childPV_len, false);
         }
         else {
             // Later moves: reduced-depth scout search.
-            score = -negamax(pos, depth - 1 - reduction + extension, ply + 1, -alpha - 1, -alpha, childPV, childPV_len);
+            score = -negamax<NonPV>(pos, depth - 1 - reduction + extension, ply + 1, -alpha - 1, -alpha, childPV, childPV_len, !cutNode);
 
             if (!interrupted && reduction > 0 && score > alpha) {
-                score = -negamax(pos, depth - 1 + extension, ply + 1, -alpha - 1, -alpha, childPV, childPV_len);
+                score = -negamax<NonPV>(pos, depth - 1 + extension, ply + 1, -alpha - 1, -alpha, childPV, childPV_len, !cutNode);
             }
 
-            if (!interrupted && score > alpha && score < beta) {
-                score = -negamax(pos, depth - 1 + extension, ply + 1, -beta, -alpha, childPV, childPV_len);
+            if (!interrupted && score > alpha && score < beta && PvNode) {
+                score = -negamax<PV>(pos, depth - 1 + extension, ply + 1, -beta, -alpha, childPV, childPV_len, false);
             }
         }
 
@@ -485,9 +522,10 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
     uint64_t lastDepthNodes = 0;
 
 
-    for (int depth = 1; depth <= (limits.depth > 0 ? limits.depth : 99); depth++) {
+    for (int depth = 1; depth <= (limits.depth > 0 ? std::min(limits.depth, MAX_PLY) : MAX_PLY); depth++) {
         interrupted = false;
         seldepth = 0;
+        rootDepth = depth;
 
         // --- TIME MANAGEMENT: stop if we can't afford depth+1 ---
         if (timeManaged && !limits.movetime && depth >= 2 && finalPV_len > 0) {
@@ -527,7 +565,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
             lastDepthNodes = nodes;
         }
 
-        int alpha = VALUE_NEGATIVE_INF;
+        int alpha = -VALUE_INFINITE;
         int beta = VALUE_INFINITE;
         int score;
 
@@ -537,7 +575,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
         }
 
         while (true) {
-            score = negamax(pos, depth, 0, alpha, beta, pv, pv_len);
+            score = negamax<Root>(pos, rootDepth, 0, alpha, beta, pv, pv_len, false);
 
             if (interrupted)
                 break;
@@ -548,14 +586,13 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
 
             if (score <= alpha) {
                 if (nodes > nodes_printing)
-                    print_info(depth, seldepth, score, ms, nodes, nps, tt_hashfull(), pv, pv_len, "upperbound");
+                    print_info(rootDepth, seldepth, score, ms, nodes, nps, tt_hashfull(), pv, pv_len, "upperbound");
                 
-                alpha = std::max(VALUE_NEGATIVE_INF, alpha - ASPIRATION_MAX_WINDOW);
-                beta = (alpha + beta) / 2;
+                alpha = std::max(-VALUE_INFINITE, alpha - ASPIRATION_MAX_WINDOW);
             }
             else if (score >= beta) {
                 if (nodes > nodes_printing)
-                    print_info(depth, seldepth, score, ms, nodes, nps, tt_hashfull(), pv, pv_len, "lowerbound");
+                    print_info(rootDepth, seldepth, score, ms, nodes, nps, tt_hashfull(), pv, pv_len, "lowerbound");
                 
                 beta = std::min(VALUE_INFINITE, beta + ASPIRATION_MAX_WINDOW);
             }
@@ -583,7 +620,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
             for (int i = 0; i < pv_len; i++)
                 finalPV[i] = pv[i];
 
-            print_info(depth, finalSeldepth, score, ms, nodes, nps, tt_hashfull(), pv, pv_len);
+            print_info(rootDepth, finalSeldepth, score, ms, nodes, nps, tt_hashfull(), pv, pv_len);
 
             continue;
         }
