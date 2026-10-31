@@ -589,6 +589,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
                     print_info(rootDepth, seldepth, score, ms, nodes, nps, tt_hashfull(), pv, pv_len, "upperbound");
                 
                 alpha = std::max(-VALUE_INFINITE, alpha - ASPIRATION_MAX_WINDOW);
+                beta = (alpha + beta) / 2;
             }
             else if (score >= beta) {
                 if (nodes > nodes_printing)
