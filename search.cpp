@@ -43,7 +43,6 @@ int currentSeldepth = 0;
 int finalSeldepth = 0;
 
 static constexpr int ASPIRATION_WINDOW = 25;
-static constexpr int ASPIRATION_MAX_WINDOW = 1000;
 
 int rootDepth = 0;
 
@@ -658,7 +657,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
                             tt_hashfull(), pv, pv_len, "upperbound", pvIdx + 1);
                     }
 
-                    alpha = std::max(-VALUE_INFINITE, alpha - ASPIRATION_MAX_WINDOW);
+                    alpha = std::max(-VALUE_INFINITE, alpha - ASPIRATION_WINDOW);
                     beta = (alpha + beta) / 2;
                 }
                 else if (score >= beta) {
@@ -667,7 +666,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
                             tt_hashfull(), pv, pv_len, "lowerbound", pvIdx + 1);
                     }
 
-                    beta = std::min(VALUE_INFINITE, beta + ASPIRATION_MAX_WINDOW);
+                    beta = std::min(VALUE_INFINITE, beta + ASPIRATION_WINDOW);
                 }
                 else {
                     break;
