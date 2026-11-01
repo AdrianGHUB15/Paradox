@@ -14,6 +14,7 @@ struct SearchLimits {
     int wtime = 0, btime = 0;
     int winc = 0, binc = 0;
     int movestogo = 30;
+    int multipv = 1;
 };
 
 class Board;
