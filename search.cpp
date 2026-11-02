@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cassert>
 #include <vector>
+#include <cmath>
 
 #include "board.h"
 #include "eval.h"
@@ -320,7 +321,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     // Reverse Futility Pruning (RFP)
     if (depth <= 6 && !rootNode && !in_check(pos, pos.stm) && !is_decisive(beta) && beta <= eval - 100 * depth)
         return eval;
-    
+
 
     int bestScore = -100000000;
 
@@ -356,7 +357,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         list.moves + list.size,
         [&](Move a, Move b) {
             return move_score(pos, a, ply)
-                 > move_score(pos, b, ply);
+    > move_score(pos, b, ply);
         });
 
     Move childPV[128];
@@ -403,13 +404,13 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
             extension++;
 
         if (depth >= 3 && moveCount >= 4 && quiet) {
-            reduction = 1;
+            reduction = int(0.75 + std::log(depth) * std::log(moveCount) / 2.25);
 
-            if (depth >= 6 && moveCount >= 8)
-                reduction = 2;
+            // Reduce less at PV nodes.
+            if (PvNode)
+                reduction--;
 
-            // Never reduce beyond the available child depth.
-            reduction = std::min(reduction, depth - 2);
+            reduction = std::max(reduction, 0);
         }
 
         if (showCurrMove && ply == 0 && nodes > nodes_printing) {
@@ -609,7 +610,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
             if (time_left <= 0) {
                 std::cout << "info string no time left, stopping at depth "
                     << (depth - 1) << "\n";
-                    return finalPV[0];
+                return finalPV[0];
             }
 
             // Estimate cost of next iteration from previous depth
@@ -710,9 +711,9 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
 
             if (currentPV_len > 0)
                 print_info(depth, currentSeldepth, currentScore, ms, nodes, nps, tt_hashfull(), currentPV, currentPV_len);
-            
 
-            if (finalPV_len > 0) 
+
+            if (finalPV_len > 0)
                 print_info(depth - 1, finalSeldepth, finalScore, ms, nodes, nps, tt_hashfull(), finalPV, finalPV_len);
 
             return finalPV_len > 0 ? finalPV[0] : bestMove;
