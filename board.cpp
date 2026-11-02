@@ -158,3 +158,10 @@ void Board::print() const {
     }
     std::printf("  a b c d e f g h\n");
 }
+
+int Board::non_pawn_material(Color c) const {
+    return 320 * __builtin_popcountll(pieceBB[c][KNIGHT])
+        + 330 * __builtin_popcountll(pieceBB[c][BISHOP])
+        + 500 * __builtin_popcountll(pieceBB[c][ROOK])
+        + 900 * __builtin_popcountll(pieceBB[c][QUEEN]);
+}

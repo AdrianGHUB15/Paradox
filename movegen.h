@@ -5,6 +5,7 @@ struct MoveList {
     Move moves[256];
     int  scores[256];
     int  size;
+    void skip_quiet_moves(int startIndex);
 
     MoveList() : size(0) {
         std::memset(moves, 0, sizeof(moves));

@@ -48,9 +48,6 @@ public:
 
     inline bool square_attacked(int sq, Color by) const;
 
-    void make_null_move(State& st);
-    void unmake_null_move(const State& st);
-
     int  non_pawn_material(Color c) const;
 
     bool sanity_check() const;

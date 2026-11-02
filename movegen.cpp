@@ -510,3 +510,19 @@ void generate_legal(Board& pos, MoveList& list) {
         list.moves[list.size++] = m;
     }
 }
+
+void MoveList::skip_quiet_moves(int startIndex) {
+    int writeIndex = startIndex;
+
+    for (int i = startIndex; i < size; i++) {
+        Move m = moves[i];
+
+        if (is_capture(m) || is_promo(m)) {
+            moves[writeIndex] = moves[i];
+            scores[writeIndex] = scores[i];
+            writeIndex++;
+        }
+    }
+
+    size = writeIndex;
+}

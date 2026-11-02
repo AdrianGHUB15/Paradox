@@ -399,6 +399,12 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         int reduction = 0;
         int extension = 0;
 
+        if (!rootNode && pos.non_pawn_material(pos.stm) &&
+            !is_loss(bestScore) && moveCount >= (5 + depth * depth) / 2) {
+
+            list.skip_quiet_moves(moveCount);
+        }
+
         if (isCheck)
             extension++;
 
