@@ -510,3 +510,27 @@ void generate_legal(Board& pos, MoveList& list) {
         list.moves[list.size++] = m;
     }
 }
+
+void MoveList::skip_quiet_moves(int startIndex, Board& pos) {
+    int writeIndex = startIndex;
+
+    for (int i = startIndex; i < size; i++) {
+        Move m = moves[i];
+
+        bool capture = is_capture(m);
+        bool promotion = is_promo(m);
+
+        State st;
+        pos.make_move(m, st);
+        bool givesCheck = in_check(pos, pos.stm);
+        pos.unmake_move(st);
+
+        if (capture || promotion || givesCheck) {
+            moves[writeIndex] = moves[i];
+            scores[writeIndex] = scores[i];
+            writeIndex++;
+        }
+    }
+
+    size = writeIndex;
+}
