@@ -404,12 +404,16 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
             extension++;
 
         if (depth >= 3 && moveCount >= 4 && quiet) {
-            reduction = int(0.75 + std::log(depth) * std::log(moveCount) / 2.25);
+            reduction = int(0.75 + std::log(depth) * std::log(moveCount) / 2.25 * 1024);
 
             // Reduce less at PV nodes.
             if (PvNode)
-                reduction--;
+                reduction -= 1024;
 
+            if (m == ttMove)
+                reduction -= 1024;
+
+            reduction /= 1024;
             reduction = std::max(reduction, 0);
         }
 
