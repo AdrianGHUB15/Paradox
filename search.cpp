@@ -43,7 +43,7 @@ int seldepth = 0;
 int currentSeldepth = 0;
 int finalSeldepth = 0;
 
-static constexpr int ASPIRATION_WINDOW = 25;
+static int ASPIRATION_WINDOW = 25;
 
 int rootDepth = 0;
 
@@ -660,6 +660,8 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
 
                     alpha = std::max(-VALUE_INFINITE, alpha - ASPIRATION_WINDOW);
                     beta = (alpha + beta) / 2;
+
+                    ASPIRATION_WINDOW *= 2;
                 }
                 else if (score >= beta) {
                     if (nodes > nodes_printing) {
@@ -668,6 +670,8 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
                     }
 
                     beta = std::min(VALUE_INFINITE, beta + ASPIRATION_WINDOW);
+
+                    ASPIRATION_WINDOW *= 2;
                 }
                 else {
                     break;
