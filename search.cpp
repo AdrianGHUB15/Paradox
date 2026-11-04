@@ -21,6 +21,7 @@ Move currentPV[128];
 
 static Move killers[128][2];
 
+static int captureHistory[6][64][6];
 static int history[64][64];
 
 static int pvIdx = 0;
