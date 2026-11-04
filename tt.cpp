@@ -31,7 +31,7 @@ static size_t tt_index(uint64_t key) {
     return key & (TTSize - 1);
 }
 
-void tt_init(size_t megabytes) {
+void tt_init(std::size_t megabytes) {
     delete[] TT;
 
     TT = nullptr;

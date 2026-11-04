@@ -2,6 +2,8 @@
 
 #include "move.h"
 
+#include <cstddef>
+
 enum TTFlag : uint8_t {
     TT_EXACT = 0,
     TT_LOWER = 1,
@@ -16,7 +18,7 @@ struct TTEntry {
     TTFlag flag;
 };
 
-void tt_init(size_t megabytes);
+void tt_init(std::size_t megabytes);
 void tt_clear();
 void tt_store(uint64_t key, int depth, int ply, int score, TTFlag flag, Move bestMove);
 
