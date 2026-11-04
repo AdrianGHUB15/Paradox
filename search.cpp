@@ -641,10 +641,11 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
             int alpha = -VALUE_INFINITE;
             int beta = VALUE_INFINITE;
             int score;
+            int window = ASPIRATION_WINDOW;
 
             if (depth >= 4 && finalPV_len > 0 && pvIdx == 0) {
-                alpha = finalScore - ASPIRATION_WINDOW;
-                beta = finalScore + ASPIRATION_WINDOW;
+                alpha = finalScore - window;
+                beta = finalScore + window;
             }
 
             while (true) {
@@ -652,14 +653,17 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
 
                 score = negamax<Root>(pos, rootDepth, 0, alpha, beta, pv, pv_len, false);
 
+                if (interrupted)
+                    break;
+
                 if (score <= alpha) {
                     if (nodes > nodes_printing) {
                         print_info(rootDepth, seldepth, score, elapsed_ms(), nodes, update_nps(),
                             tt_hashfull(), pv, pv_len, "upperbound", pvIdx + 1);
                     }
 
-                    alpha = std::max(-VALUE_INFINITE, alpha - ASPIRATION_WINDOW);
-                    beta = (alpha + beta) / 2;
+                    alpha = std::max(-VALUE_INFINITE, alpha - window);
+                    window *= 2;
                 }
                 else if (score >= beta) {
                     if (nodes > nodes_printing) {
@@ -667,7 +671,8 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
                             tt_hashfull(), pv, pv_len, "lowerbound", pvIdx + 1);
                     }
 
-                    beta = std::min(VALUE_INFINITE, beta + ASPIRATION_WINDOW);
+                    beta = std::min(VALUE_INFINITE, beta + window);
+                    window *= 2;
                 }
                 else {
                     break;
