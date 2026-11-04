@@ -23,6 +23,7 @@ static Move killers[128][2];
 
 static int captureHistory[6][64][6];
 static int history[64][64];
+static int16_t continuationHistory[6][64][6][64]{};
 
 static int pvIdx = 0;
 static int pvLast = 0;
@@ -127,8 +128,18 @@ void update_capture_history(Board& pos, Move m, int depth) {
     h += bonus - h * bonus / 16384;
 }
 
-int move_score(Board& pos, Move m, int ply) {
+void update_continuation_history(Piece prevPiece, int prevTo, Piece piece, int to, int depth) {
+    if (prevPiece == NO_PIECE || prevTo < 0 || piece == NO_PIECE)
+        return;
 
+    int bonus = std::min(2048, depth * depth * 16);
+
+    int16_t& h = continuationHistory[prevPiece][prevTo][piece][to];
+
+    h += bonus - int(h) * bonus / 16384;
+}
+
+int move_score(Board& pos, Move m, int ply, Piece prevPiece, int prevTo) {
     if (is_capture(m)) {
         Piece victim = is_ep(m) ? PAWN : pos.piece_at(to_sq(m));
         Piece attacker = pos.piece_at(from_sq(m));
@@ -147,7 +158,16 @@ int move_score(Board& pos, Move m, int ply) {
     if (m == killers[ply][1])
         return 19000000;
 
-    return history[from_sq(m)][to_sq(m)];
+    int score = history[from_sq(m)][to_sq(m)];
+
+    if (prevPiece != NO_PIECE && prevTo >= 0) {
+        Piece piece = pos.piece_at(from_sq(m));
+
+        if (piece != NO_PIECE)
+            score += continuationHistory[prevPiece][prevTo][piece][to_sq(m)];
+    }
+
+    return score;
 }
 
 bool is_win(int score) {
@@ -289,7 +309,8 @@ int qsearch(Board& pos, int alpha, int beta, int ply) {
     return alpha;
 }
 template<NodeType nodeType>
-int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int& pv_len, bool cutNode) {
+int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int& pv_len, 
+            bool cutNode, Piece prevPiece = NO_PIECE, int prevTo = -1) {
 
     int originalAlpha = alpha;
 
@@ -378,8 +399,8 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     std::stable_sort(list.moves + sortStart, 
                      list.moves + list.size,
         [&](Move a, Move b) {
-            return move_score(pos, a, ply)
-                 > move_score(pos, b, ply);
+            return move_score(pos, a, ply, prevPiece, prevTo)
+                 > move_score(pos, b, ply, prevPiece, prevTo);
         });
 
     Move childPV[128];
@@ -413,6 +434,10 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         bool promotion = is_promo(m);
 
         State st;
+
+        Piece currentPiece = pos.piece_at(from_sq(m));
+        int currentTo = to_sq(m);
+
         pos.make_move(m, st);
 
         bool isCheck = in_check(pos, pos.stm);
@@ -446,18 +471,18 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         }
 
         if (moveCount == 1 && PvNode) {
-            score = -negamax<PV>(pos, depth - 1 + extension, ply + 1, -beta, -alpha, childPV, childPV_len, false);
+            score = -negamax<PV>(pos, depth - 1 + extension, ply + 1, -beta, -alpha, childPV, childPV_len, false, currentPiece, currentTo);
         }
         else {
             // Later moves: reduced-depth scout search.
-            score = -negamax<NonPV>(pos, depth - 1 - reduction + extension, ply + 1, -alpha - 1, -alpha, childPV, childPV_len, !cutNode);
+            score = -negamax<NonPV>(pos, depth - 1 - reduction + extension, ply + 1, -alpha - 1, -alpha, childPV, childPV_len, !cutNode, currentPiece, currentTo);
 
             if (!interrupted && reduction > 0 && score > alpha) {
-                score = -negamax<NonPV>(pos, depth - 1 + extension, ply + 1, -alpha - 1, -alpha, childPV, childPV_len, !cutNode);
+                score = -negamax<NonPV>(pos, depth - 1 + extension, ply + 1, -alpha - 1, -alpha, childPV, childPV_len, !cutNode, currentPiece, currentTo);
             }
 
             if (!interrupted && score > alpha && score < beta && PvNode) {
-                score = -negamax<PV>(pos, depth - 1 + extension, ply + 1, -beta, -alpha, childPV, childPV_len, false);
+                score = -negamax<PV>(pos, depth - 1 + extension, ply + 1, -beta, -alpha, childPV, childPV_len, false, currentPiece, currentTo);
             }
         }
 
@@ -491,8 +516,10 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         if (score > alpha) {
             alpha = score;
 
-            if (quiet)
+            if (quiet) {
                 update_history(m, depth);
+                update_continuation_history(prevPiece, prevTo, currentPiece, currentTo, depth);
+            }
         }
 
         if (alpha >= beta) {
@@ -587,6 +614,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
     std::memset(history, 0, sizeof(history));
     std::memset(killers, 0, sizeof(killers));
     std::memset(captureHistory, 0, sizeof(captureHistory));
+    std::memset(continuationHistory, 0, sizeof(continuationHistory));
 
     MoveList legalMoves;
     generate_legal(pos, legalMoves);
