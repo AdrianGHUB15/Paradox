@@ -2,8 +2,6 @@
 
 #include "types.h"
 
-#include <intrin.h>
-
 typedef uint64_t Bitboard;
 
 // Portable bit operations
