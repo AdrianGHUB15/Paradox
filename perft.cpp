@@ -1,11 +1,11 @@
 #include "movegen.h"
 #include "perft_tables.h"
-#include <unordered_map>
+
 #include <algorithm>
 #include <chrono>
+#include <unordered_map>
 
-// MOVE ORDERING
-
+// Move ordering for printing
 static int move_sort_key(const Board& pos, Move m) {
     int from = from_sq(m);
     int to = to_sq(m);
@@ -43,8 +43,7 @@ static int move_sort_key(const Board& pos, Move m) {
     return (group << 12) | (from << 6) | to;
 }
 
-// FEN GENERATION
-
+// Fen generation
 static char piece_to_fen(Piece p, Color c) {
     static const char* white = "PNBRQK";
     static const char* black = "pnbrqk";
@@ -104,14 +103,15 @@ std::string board_to_fen(const Board& pos) {
 
     return fen;
 }
-std::uint64_t perft(Board& pos, int depth) {
+
+uint64_t perft(Board& pos, int depth) {
     if (depth == 0)
         return 1;
 
     MoveList list;
     generate_legal(pos, list);
 
-    std::uint64_t nodes = 0;
+    uint64_t nodes = 0;
 
     for (int i = 0; i < list.size; ++i) {
         Move m = list.moves[i];
@@ -125,11 +125,11 @@ std::uint64_t perft(Board& pos, int depth) {
     return nodes;
 }
 
-std::uint64_t perft_divide(Board& pos, int depth) {
+uint64_t perft_divide(Board& pos, int depth) {
     MoveList list;
     generate_legal(pos, list);
 
-    std::uint64_t total = 0;
+    uint64_t total = 0;
 
     auto global_start = std::chrono::high_resolution_clock::now();
 
@@ -140,14 +140,14 @@ std::uint64_t perft_divide(Board& pos, int depth) {
         auto start = std::chrono::high_resolution_clock::now();
 
         pos.make_move(m, st);
-        std::uint64_t n = perft(pos, depth - 1);
+        uint64_t n = perft(pos, depth - 1);
         pos.unmake_move(st);
 
         auto end = std::chrono::high_resolution_clock::now();
         double ms = std::chrono::duration<double, std::milli>(end - start).count();
         double nps = (ms > 0 ? (n * 1000.0) / ms : 0);
 
-        std::printf("%s: %llu  (%.3f ms, %.2f nps)\n",
+        printf("%s: %llu  (%.3f ms, %.2f nps)\n",
             move_to_string(m),
             (unsigned long long)n,
             ms,
@@ -160,7 +160,7 @@ std::uint64_t perft_divide(Board& pos, int depth) {
     double total_ms = std::chrono::duration<double, std::milli>(global_end - global_start).count();
     double total_nps = (total_ms > 0 ? (total * 1000.0) / total_ms : 0);
 
-    std::printf("Nodes searched: %llu  (%.3f ms, %.2f nps)\n",
+    printf("Nodes searched: %llu  (%.3f ms, %.2f nps)\n",
         (unsigned long long)total,
         total_ms,
         total_nps);
@@ -168,13 +168,12 @@ std::uint64_t perft_divide(Board& pos, int depth) {
     return total;
 }
 
-// PERFT BREAKDOWN (COMPARE TO REFERENCE TABLES)
+// Perft breakdown (compare to reference tables)
 void perft_break(Board& pos, int depth) {
-    RefMoveList ref =
-        load_reference_for_depth(board_to_fen(pos), depth);
+    RefMoveList ref = load_reference_for_depth(board_to_fen(pos), depth);
 
     if (ref.empty()) {
-        std::printf("No reference table for this position/depth.\n");
+        printf("No reference table for this position/depth.\n");
         return;
     }
 
@@ -183,24 +182,26 @@ void perft_break(Board& pos, int depth) {
 
     std::vector<Move> ordered;
     ordered.reserve(list.size);
+
     for (int i = 0; i < list.size; i++)
         ordered.push_back(list.moves[i]);
 
     std::sort(ordered.begin(), ordered.end(),
         [&](Move a, Move b) {
-            return move_sort_key(pos, a) < move_sort_key(pos, b);
+            return move_sort_key(pos, a) < 
+                   move_sort_key(pos, b);
         });
 
     std::unordered_map<std::string, uint64_t> refMap;
     for (auto& r : ref)
         refMap[r.moveStr] = r.nodes;
 
-    std::uint64_t total_engine = 0;
-    std::uint64_t total_ref = 0;
+    uint64_t total_engine = 0;
+    uint64_t total_ref = 0;
 
     auto global_start = std::chrono::high_resolution_clock::now();
 
-    std::printf("\n=== FULL MOVE COMPARISON ===\n");
+    printf("\n=== FULL MOVE COMPARISON ===\n");
 
     for (Move m : ordered) {
         std::string key = move_to_string(m);
@@ -210,8 +211,11 @@ void perft_break(Board& pos, int depth) {
         auto start = std::chrono::high_resolution_clock::now();
 
         State st;
+
         pos.make_move(m, st);
+
         uint64_t engNodes = perft(pos, depth - 1);
+
         pos.unmake_move(st);
 
         auto end = std::chrono::high_resolution_clock::now();
@@ -222,13 +226,13 @@ void perft_break(Board& pos, int depth) {
         total_ref += refNodes;
 
         if (engNodes == refNodes)
-            std::printf("OK: %s  nodes=%llu  (%.3f ms, %.2f nps)\n",
+            printf("OK: %s  nodes=%llu  (%.3f ms, %.2f nps)\n",
                 key.c_str(),
                 (unsigned long long)engNodes,
                 ms,
                 nps);
         else
-            std::printf("WRONG NODE COUNT: %s  ref=%llu  eng=%llu  (%.3f ms, %.2f nps)\n",
+            printf("WRONG NODE COUNT: %s  ref=%llu  eng=%llu  (%.3f ms, %.2f nps)\n",
                 key.c_str(),
                 (unsigned long long)refNodes,
                 (unsigned long long)engNodes,
@@ -240,13 +244,12 @@ void perft_break(Board& pos, int depth) {
     double total_ms = std::chrono::duration<double, std::milli>(global_end - global_start).count();
     double total_nps = (total_ms > 0 ? (total_engine * 1000.0) / total_ms : 0);
 
-    std::printf("\nReference total: %llu\n", (unsigned long long)total_ref);
-    std::printf("Engine total:    %llu  (%.3f ms, %.2f nps)\n\n",
+    printf("\nReference total: %llu\n", (unsigned long long)total_ref);
+    printf("Engine total:    %llu  (%.3f ms, %.2f nps)\n\n",
         (unsigned long long)total_engine,
         total_ms,
         total_nps);
 }
-// FULL PERFT SUITE
 
 struct PerftSuiteTest
 {
@@ -262,36 +265,29 @@ struct PerftSuiteConfig
     int testCount;
 };
 
-// Generic suite runner
-
-static void run_perft_suite(const PerftSuiteConfig& config)
-{
+// Suite runner
+static void run_perft_suite(const PerftSuiteConfig& config) {
     int passed = 0;
     int failed = 0;
 
-    std::printf("\n");
-    std::printf("============================================================\n");
-    std::printf("                 PARADOX PERFT SUITE %s\n", config.name);
-    std::printf("============================================================\n");
+    printf("\n");
+    printf("============================================================\n");
+    printf("                 PARADOX PERFT SUITE %s\n", config.name);
+    printf("============================================================\n");
 
     for (int t = 0; t < config.testCount; ++t)
     {
         const auto& test = config.tests[t];
 
-        std::printf("\n[%s]\n", test.name);
-        std::printf("FEN: %s\n", test.fen);
+        printf("\n[%s]\n", test.name);
+        printf("FEN: %s\n", test.fen);
 
         for (int depth = 1; depth <= test.maxDepth; ++depth)
         {
-            RefMoveList ref =
-                load_reference_for_depth(test.fen, depth);
+            RefMoveList ref = load_reference_for_depth(test.fen, depth);
 
-            if (ref.empty())
-            {
-                std::printf(
-                    "  D%d: NO REFERENCE\n",
-                    depth
-                );
+            if (ref.empty()) {
+                printf("  D%d: NO REFERENCE\n", depth);
 
                 ++failed;
                 continue;
@@ -303,19 +299,17 @@ static void run_perft_suite(const PerftSuiteConfig& config)
             MoveList list;
             generate_legal(pos, list);
 
-            std::unordered_map<std::string, std::uint64_t> refMap;
+            std::unordered_map<std::string, uint64_t> refMap;
 
             for (const auto& r : ref)
                 refMap[r.moveStr] = r.nodes;
 
-            std::uint64_t engineTotal = 0;
-            std::uint64_t referenceTotal = 0;
+            uint64_t engineTotal = 0;
+            uint64_t referenceTotal = 0;
 
             bool depthPassed = true;
 
-            auto start =
-                std::chrono::high_resolution_clock::now();
-
+            auto start = std::chrono::high_resolution_clock::now();
 
             // Compare every legal root move
             for (int i = 0; i < list.size; ++i)
@@ -327,8 +321,7 @@ static void run_perft_suite(const PerftSuiteConfig& config)
 
                 pos.make_move(m, st);
 
-                std::uint64_t nodes =
-                    perft(pos, depth - 1);
+                uint64_t nodes = perft(pos, depth - 1);
 
                 pos.unmake_move(st);
 
@@ -338,8 +331,7 @@ static void run_perft_suite(const PerftSuiteConfig& config)
 
                 if (it == refMap.end())
                 {
-                    std::printf(
-                        "  D%d FAIL: unexpected move %s "
+                    printf("  D%d FAIL: unexpected move %s "
                         "(engine=%llu)\n",
                         depth,
                         moveStr.c_str(),
@@ -350,14 +342,13 @@ static void run_perft_suite(const PerftSuiteConfig& config)
                     continue;
                 }
 
-                std::uint64_t expected = it->second;
+                uint64_t expected = it->second;
 
                 referenceTotal += expected;
 
                 if (nodes != expected)
                 {
-                    std::printf(
-                        "  D%d FAIL: %s "
+                    printf("  D%d FAIL: %s "
                         "expected=%llu "
                         "actual=%llu\n",
                         depth,
@@ -386,8 +377,7 @@ static void run_perft_suite(const PerftSuiteConfig& config)
 
                 if (!found)
                 {
-                    std::printf(
-                        "  D%d FAIL: missing move %s "
+                    printf("  D%d FAIL: missing move %s "
                         "(expected=%llu)\n",
                         depth,
                         r.moveStr.c_str(),
@@ -399,25 +389,16 @@ static void run_perft_suite(const PerftSuiteConfig& config)
                 }
             }
 
-            auto end =
-                std::chrono::high_resolution_clock::now();
+            auto end = std::chrono::high_resolution_clock::now();
 
-            double ms =
-                std::chrono::duration<double, std::milli>(
-                    end - start
-                ).count();
+            double ms = std::chrono::duration<double, std::milli>(end - start).count();
 
-            double nps =
-                ms > 0.0
-                ? (engineTotal * 1000.0) / ms
-                : 0.0;
+            double nps = ms > 0.0 ? (engineTotal * 1000.0) / ms : 0.0;
 
             // Final result
-            if (depthPassed &&
-                engineTotal == referenceTotal)
+            if (depthPassed && engineTotal == referenceTotal)
             {
-                std::printf(
-                    "  D%d PASS: %llu nodes "
+                printf("  D%d PASS: %llu nodes "
                     "(%.3f ms, %.2f nps)\n",
                     depth,
                     (unsigned long long)engineTotal,
@@ -429,8 +410,7 @@ static void run_perft_suite(const PerftSuiteConfig& config)
             }
             else
             {
-                std::printf(
-                    "  D%d FAIL: "
+                printf("  D%d FAIL: "
                     "reference=%llu "
                     "engine=%llu "
                     "(%.3f ms, %.2f nps)\n",
@@ -447,27 +427,26 @@ static void run_perft_suite(const PerftSuiteConfig& config)
     }
 
     // Final summary
-    std::printf("\n");
-    std::printf("============================================================\n");
+    printf("\n");
+    printf("============================================================\n");
 
     if (failed == 0)
-        std::printf("PERFT SUITE: PASS\n");
+        printf("PERFT SUITE: PASS\n");
     else
-        std::printf("PERFT SUITE: FAIL\n");
+        printf("PERFT SUITE: FAIL\n");
 
-    std::printf(
+    printf(
         "Tests: %d  Passed: %d  Failed: %d\n",
         passed + failed,
         passed,
         failed
     );
 
-    std::printf("============================================================\n");
+    printf("============================================================\n");
     std::fflush(stdout);
 }
 
-// FAST
-
+// Fast
 void run_perft_suite_fast()
 {
     static const PerftSuiteTest tests[] = {
@@ -479,15 +458,13 @@ void run_perft_suite_fast()
         { "FEN5",     FEN_5,        4 }
     };
 
-    run_perft_suite({
-        "FAST",
+    run_perft_suite({"FAST",
         tests,
         sizeof(tests) / sizeof(tests[0])
         });
 }
 
-// LONG
-
+// Long
 void run_perft_suite_long()
 {
     static const PerftSuiteTest tests[] = {
@@ -499,15 +476,13 @@ void run_perft_suite_long()
         { "FEN5",     FEN_5,        5 }
     };
 
-    run_perft_suite({
-        "LONG",
+    run_perft_suite({"LONG",
         tests,
         sizeof(tests) / sizeof(tests[0])
         });
 }
 
-// VERY LONG
-
+// Very long
 void run_perft_suite_very_long()
 {
     static const PerftSuiteTest tests[] = {
@@ -519,8 +494,7 @@ void run_perft_suite_very_long()
         { "FEN5",     FEN_5,        6 }
     };
 
-    run_perft_suite({
-        "VERY LONG",
+    run_perft_suite({"VERY LONG",
         tests,
         sizeof(tests) / sizeof(tests[0])
         });

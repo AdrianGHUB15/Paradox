@@ -1,43 +1,41 @@
-﻿#include <chrono>
-#include <iostream>
-#include <algorithm>
-#include <cstdio>
-#include <cassert>
-#include <vector>
-#include <cmath>
-
-#include "board.h"
-#include "eval.h"
+﻿#include "eval.h"
 #include "movegen.h"
 #include "search.h"
 #include "see.h"
 #include "tt.h"
 
+#include <algorithm>
+#include <cassert>
+#include <chrono>
+#include <cmath>
+#include <iostream>
+#include <vector>
+
 uint64_t nodes = 0;
-std::chrono::steady_clock::time_point startTime;
-int TIME_LIMIT_MS = 0;
-
-static int history[64][64];
-static int captureHistory[6][64][6];
-static Move killers[128][2];
-
 uint64_t NODE_LIMIT = 0;
 
-bool stopRequested = false;
-bool infiniteSearch = false;
-bool interrupted = false;
-bool showCurrMove = true;
+uint32_t nodes_printing = 10000000ULL;
 
 Move finalPV[128];
+Move currentPV[128];
+
+static Move killers[128][2];
+
+static int history[64][64];
+
+static int pvIdx = 0;
+static int pvLast = 0;
+static int multiPV = 1;
+
+static constexpr int ASPIRATION_WINDOW = 25;
+
+constexpr int MAX_PLY = 128;
+
 int finalPV_len = 0;
 int finalScore = 0;
 
-Move currentPV[128];
 int currentPV_len = 0;
 int currentScore = 0;
-uint64_t nodes_printing = 10000000ULL;
-
-constexpr int MAX_PLY = 128;
 
 int VALUE_INFINITE = MATE + 1;
 
@@ -45,23 +43,22 @@ int seldepth = 0;
 int currentSeldepth = 0;
 int finalSeldepth = 0;
 
-static constexpr int ASPIRATION_WINDOW = 25;
-
 int rootDepth = 0;
+int TIME_LIMIT_MS = 0;
+
+bool stopRequested = false;
+bool infiniteSearch = false;
+bool interrupted = false;
+bool showCurrMove = true;
 
 struct RootMove {
     Move move = 0;
-    int score = -VALUE_INFINITE;
     Move pv[128]{};
+
+    int score = -VALUE_INFINITE;
     int pv_len = 0;
     int seldepth = 0;
 };
-
-static std::vector<RootMove> rootMoves;
-
-static int pvIdx = 0;
-static int pvLast = 0;
-static int multiPV = 1;
 
 enum NodeType {
     NonPV,
@@ -69,10 +66,16 @@ enum NodeType {
     Root
 };
 
+static std::vector<RootMove> rootMoves;
+
+std::chrono::steady_clock::time_point startTime;
+
+
 static void sort_root_moves() {
     std::stable_sort(rootMoves.begin(), rootMoves.end(),
         [](const RootMove& a, const RootMove& b) {
-            return a.score > b.score;
+            return a.score 
+                 > b.score;
         });
 }
 
@@ -173,15 +176,13 @@ bool time_up() {
 
     auto now = std::chrono::steady_clock::now();
 
-    int ms = (int)std::chrono::duration_cast<std::chrono::milliseconds>(
-        now - startTime
-    ).count();
+    int ms = (int)std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
 
     return ms >= TIME_LIMIT_MS;
 }
 
 void print_info(int depth, int seldepth, int score, uint64_t ms,
-    uint64_t nodes, uint64_t nps, uint64_t hashfull,
+    uint64_t nodes, uint64_t nps, uint16_t hashfull,
     Move pv[], int pv_len, const char* bound = nullptr, int multipvIndex = 1)
 {
     auto is_mate = [&](int s) {
@@ -318,7 +319,6 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     if (depth <= 0)
         return qsearch<PvNode ? PV : NonPV>(pos, alpha, beta, ply);
 
-
     depth = std::min(depth, MAX_PLY - 1);
 
     assert(-VALUE_INFINITE <= alpha && alpha < beta && beta <= VALUE_INFINITE);
@@ -337,11 +337,12 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     int eval = evaluate(pos);
 
     // Reverse Futility Pruning (RFP)
-    if (depth <= 6 && !rootNode && !in_check(pos, pos.stm) && !is_decisive(beta) && beta <= eval - 100 * depth)
+    if (depth <= 6 && !rootNode && !in_check(pos, pos.stm) 
+        && !is_decisive(beta) && beta <= eval - 100 * depth)
         return eval;
 
 
-    int bestScore = -100000000;
+    int bestScore = -VALUE_INFINITE;
 
     MoveList list;
     generate_legal(pos, list);
@@ -350,8 +351,10 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         pv_len = 0;
         if (in_check(pos, pos.stm))
             return -MATE + ply;
+
         return 0;
     }
+
     if (ttMove != 0) {
 
         for (int i = 0; i < list.size; ++i) {
@@ -371,14 +374,15 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     if (ttMove != 0 && list.size > 0 && list.moves[0] == ttMove)
         sortStart = 1;
 
-    std::stable_sort(list.moves + sortStart,
-        list.moves + list.size,
+    std::stable_sort(list.moves + sortStart, 
+                     list.moves + list.size,
         [&](Move a, Move b) {
             return move_score(pos, a, ply)
-    > move_score(pos, b, ply);
+                 > move_score(pos, b, ply);
         });
 
     Move childPV[128];
+
     int childPV_len = 0;
     int moveCount = 0;
 
@@ -400,6 +404,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
                     continue;
             }
         }
+
         Move ParentMove = m;
         int ParentCurrMove = i + 1;
 
@@ -431,7 +436,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
             reduction = std::max(reduction, 0);
         }
 
-        if (showCurrMove && ply == 0 && nodes > nodes_printing) {
+        if (showCurrMove && rootNode && nodes > nodes_printing) {
             std::cout << "info depth " << depth
                 << " search depth " << depth + extension - reduction
                 << " currmove " << move_to_string(ParentMove)
@@ -506,9 +511,9 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         TTFlag flag;
 
         if (bestScore <= originalAlpha)
-            flag = TT_ALPHA;
+            flag = TT_LOWER;
         else if (bestScore >= beta)
-            flag = TT_BETA;
+            flag = TT_UPPER;
         else
             flag = TT_EXACT;
 
@@ -599,6 +604,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
 
     Move bestMove = 0;
     Move pv[128];
+
     int pv_len = 0;
 
     // Cumulative across the whole iterative deepening run, so that the
@@ -755,11 +761,11 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
         uint64_t nps = update_nps();
 
         std::cout << "info string bench summary: "
-            << nodes << " nodes " << nps << " nps\n";
+                  << nodes << " nodes " << nps << " nps\n";
 
         std::cout << "bench: " << ms << " ms "
-            << nodes << " nodes "
-            << nps << " nps" << std::endl;
+                  << nodes << " nodes "
+                  << nps << " nps" << std::endl;
     }
 
     // After iterative deepening loop ends

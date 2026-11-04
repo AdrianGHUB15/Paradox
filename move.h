@@ -1,11 +1,9 @@
 #pragma once
 
-#include <cstdint>
 #include "types.h"
 
 using Move = uint16_t;
 
-// Legacy promotion values. Keep these stable for board.h.
 enum Promo : int {
     PROMO_NONE = 0,
     PROMO_N = 1,
@@ -14,7 +12,6 @@ enum Promo : int {
     PROMO_Q = 4
 };
 
-// Legacy flags. Keep these stable for movegen.cpp and board.h.
 enum MoveFlag : int {
     FLAG_NONE = 0,
     FLAG_CAPTURE = 1,
@@ -23,7 +20,6 @@ enum MoveFlag : int {
     FLAG_CASTLING = 4
 };
 
-// Four bits available in the packed move.
 enum MoveType : int {
     QUIET = 0,
     DOUBLE_PUSH,
@@ -41,8 +37,7 @@ enum MoveType : int {
     MOVE_PROMO_Q_CAPTURE
 };
 
-inline Move make_move_type(int from, int to, int type)
-{
+inline Move make_move_type(int from, int to, int type) {
     return Move(
         (from & 0x3F) |
         ((to & 0x3F) << 6) |
@@ -51,9 +46,7 @@ inline Move make_move_type(int from, int to, int type)
 }
 
 // Backward-compatible API: make_move(from, to, promo, flags).
-inline Move make_move(int from, int to,
-    int promo = PROMO_NONE,
-    int flags = FLAG_NONE)
+inline Move make_move(int from, int to, int promo = PROMO_NONE, int flags = FLAG_NONE)
 {
     int type = QUIET;
 

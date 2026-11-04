@@ -1,6 +1,5 @@
-#include "uci.h"
-#include "search.h"
 #include "tt.h"
+#include "uci.h"
 
 int main(int argc, char** argv) {
     init_bitboards();
