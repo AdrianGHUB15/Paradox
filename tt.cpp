@@ -72,13 +72,7 @@ Move tt_get_move(uint64_t key) {
     return entry.bestMove;
 }
 
-bool tt_probe(uint64_t key,
-    int depth,
-    int ply,
-    int alpha,
-    int beta,
-    int& score,
-    Move& bestMove) {
+bool tt_probe(uint64_t key, int depth, int ply, int alpha, int beta, int& score, Move& bestMove) {
 
     bestMove = 0;
 
@@ -104,14 +98,14 @@ bool tt_probe(uint64_t key,
         score = ttScore;
         return true;
 
-    case TT_ALPHA:
+    case TT_LOWER:
         if (ttScore <= alpha) {
             score = ttScore;
             return true;
         }
         break;
 
-    case TT_BETA:
+    case TT_UPPER:
         if (ttScore >= beta) {
             score = ttScore;
             return true;
@@ -122,12 +116,7 @@ bool tt_probe(uint64_t key,
     return false;
 }
 
-void tt_store(uint64_t key,
-    int depth,
-    int ply,
-    int score,
-    TTFlag flag,
-    Move bestMove) {
+void tt_store(uint64_t key, int depth, int ply, int score, TTFlag flag, Move bestMove) {
 
     if (!TT || TTSize == 0)
         return;
@@ -144,7 +133,7 @@ void tt_store(uint64_t key,
     entry.flag = flag;
 }
 
-uint64_t tt_hashfull() {
+uint16_t tt_hashfull() {
     if (!TT || TTSize == 0)
         return 0;
 
@@ -156,5 +145,5 @@ uint64_t tt_hashfull() {
             ++used;
     }
 
-    return (used * 1000ULL) / sample;
+    return static_cast<uint16_t>((used * 1000) / sample);
 }

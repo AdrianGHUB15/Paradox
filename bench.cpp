@@ -1,9 +1,8 @@
-#include "search.h"
-#include "move.h"
 #include "board.h"
+#include "tt.h"
+
 #include <chrono>
 #include <iostream>
-#include "tt.h"
 
 extern uint64_t nodes;
 

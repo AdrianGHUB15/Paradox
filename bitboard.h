@@ -1,42 +1,12 @@
 #pragma once
+
 #include "types.h"
+
+#include <intrin.h>
 
 typedef uint64_t Bitboard;
 
 // Portable bit operations
-#ifdef _MSC_VER
-#include <intrin.h>
-
-inline int lsb_index(uint64_t b) {
-    unsigned long idx;
-    _BitScanForward64(&idx, b);
-    return int(idx);
-}
-
-inline int popcount64(uint64_t b) {
-    return int(__popcnt64(b));
-}
-
-inline int msb(uint64_t b) {
-    unsigned long idx;
-    _BitScanReverse64(&idx, b);
-    return int(idx);
-}
-
-inline Bitboard isolate_lsb(Bitboard b) {
-    return b & (~b + 1ULL);
-}
-
-inline int pop_lsb_index(Bitboard &bb) {
-    int sq = lsb_index(bb);
-    bb &= bb - 1;
-    return sq;
-}
-
-inline int pop_lsb(Bitboard& b) { return pop_lsb_index(b); }
-inline int lsb(Bitboard b) { return lsb_index(b); }
-
-#else
 
 inline int lsb(uint64_t b) {
     return int(__builtin_ctzll(b));
@@ -58,12 +28,6 @@ inline int pop_lsb(Bitboard& b) {
 inline int popcount64(uint64_t b) {
     return int(__builtin_popcountll(b));
 }
-
-inline int msb(uint64_t b) {
-    return 63 - int(__builtin_clzll(b));
-}
-
-#endif
 
 inline int popcount(uint64_t b) { return popcount64(b); }
 
@@ -118,6 +82,5 @@ inline Bitboard queen_attack(int sq, Bitboard occ) {
     return bishop_attack(sq, occ) | rook_attack(sq, occ);
 }
 
-// Initialization
 void init_bitboards();   // knight/king/pawn + masks + pushes
 void init_magics();      // magic tables + sliding attacks

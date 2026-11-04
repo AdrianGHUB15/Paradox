@@ -1,5 +1,4 @@
 #include "see.h"
-#include <algorithm>
 
 static inline int see_value(Piece p) {
     static const int val[6] = { 100, 300, 300, 500, 900, 20000 };

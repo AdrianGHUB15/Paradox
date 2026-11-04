@@ -1,8 +1,9 @@
 #pragma once
+
 #include "bitboard.h"
-#include "move.h"
-#include "zobrist.h"
 #include "search.h"
+#include "zobrist.h"
+
 #include <cstring>
 
 struct State {

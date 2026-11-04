@@ -1,7 +1,4 @@
 #include "board.h"
-#include "zobrist.h"
-#include <cstdio>
-#include <cctype>
 
 Board::Board() {
     std::memset(pieceBB, 0, sizeof(pieceBB));

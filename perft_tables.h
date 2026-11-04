@@ -1,7 +1,8 @@
 #pragma once
 
-#include <vector>
 #include <string>
+#include <vector>
+
 #include "board.h"
 
 struct RefEntry {
@@ -20,6 +21,7 @@ RefMoveList load_reference_for_depth(const std::string& fen, int depth);
 
 // Convenience overload: Board -> FEN -> reference
 std::string board_to_fen(const Board& pos);
+
 inline RefMoveList load_reference_for_depth(const Board& pos, int depth) {
     return load_reference_for_depth(board_to_fen(pos), depth);
 }

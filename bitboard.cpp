@@ -16,14 +16,14 @@ Bitboard rookAttacks[64][4096];
 
 // Knight attacks
 const int DIRS[8] = {
-    8,   // 0: N
-   -8,   // 1: S
-    1,   // 2: E
-   -1,   // 3: W
-    9,   // 4: NE
-    7,   // 5: NW
-   -7,   // 6: SE
-   -9    // 7: SW
+    8,   // North
+   -8,   // South
+    1,   // East
+   -1,   // West
+    9,   // North East
+    7,   // North West
+   -7,   // South East
+   -9    // South West
 };
 
 
@@ -161,7 +161,7 @@ void init_bitboards() {
         PAWN_ATTACKS[BLACK][sq] = pawn_from(BLACK, sq);
     }
 
-    // STEP 7: Pawn push masks
+    // Pawn push masks
     for (int sq = 0; sq < 64; sq++) {
         int r = sq >> 3;
 
@@ -190,7 +190,7 @@ void init_bitboards() {
             PAWN_PUSH2[BLACK][sq] = 0;
     }
 
-   // STEP 8: Sliding rays
+   // Sliding rays
     for (int sq = 0; sq < 64; sq++) {
         int f0 = sq & 7;
 
@@ -465,7 +465,6 @@ int rookShifts[64] = {
 
 // init_magics
 void init_magics() {
-
     // 1. Build masks
     for (int sq = 0; sq < 64; sq++) {
         bishopMasks[sq] = mask_bishop(sq);
