@@ -1,4 +1,5 @@
 #include "perft_tables.h"
+
 #include <unordered_map>
 
 // FEN strings

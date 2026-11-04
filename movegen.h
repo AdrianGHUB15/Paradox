@@ -1,4 +1,5 @@
 #pragma once
+
 #include "board.h"
 
 struct MoveList {
@@ -17,4 +18,3 @@ void generate_pseudo(const Board& pos, MoveList& list);
 
 // Fully legal moves (king safety enforced)
 void generate_legal(Board& pos, MoveList& list);
-void generate_captures(const Board& pos, MoveList& list);

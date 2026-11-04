@@ -1,31 +1,21 @@
 ﻿#define _CRT_SECURE_NO_WARNINGS
 
-#include <algorithm>
-#include <cstdlib>
-#include <cstdio>
-#include <cstring>
-#include <string>
 #include <iostream>
 #include <sstream>
 
-#include "board.h"
 #include "movegen.h"
-#include "move.h"
-#include "eval.h"
-#include "search.h"
 #include "tt.h"
 
 static Board g_board;
 static int g_multiPV = 1;
-extern bool stopRequested;
-extern bool infiniteSearch;
 
 void perft_break(Board& pos, int depth);
-std::uint64_t perft_divide(Board& pos, int depth);
 
 void run_perft_suite_fast();
 void run_perft_suite_long();
 void run_perft_suite_very_long();
+
+uint64_t perft_divide(Board& pos, int depth);
 
 // Helpers
 static int uci_square_to_index(const std::string& s, int pos) {
@@ -108,8 +98,7 @@ static void cmd_setoption(const std::string& line) {
 
     std::getline(iss, value);
 
-    while (!value.empty() &&
-        (value[0] == ' ' || value[0] == '\t'))
+    while (!value.empty() && (value[0] == ' ' || value[0] == '\t'))
     {
         value.erase(value.begin());
     }
@@ -126,10 +115,7 @@ static void cmd_setoption(const std::string& line) {
 
         tt_init(mb);
 
-        std::cout
-            << "info string Hash set to "
-            << mb
-            << " MB\n";
+        std::cout << "info string Hash set to " << mb << " MB\n";
 
         return;
     }
@@ -138,8 +124,7 @@ static void cmd_setoption(const std::string& line) {
 
         tt_clear();
 
-        std::cout
-            << "info string Hash cleared\n";
+        std::cout << "info string Hash cleared\n";
 
         return;
     }
@@ -156,13 +141,12 @@ static void cmd_setoption(const std::string& line) {
         requested = std::max(1L, std::min(256L, requested));
         g_multiPV = static_cast<int>(requested);
 
-        std::cout << "info string MultiPV set to "
-            << g_multiPV << "\n";
+        std::cout << "info string MultiPV set to " << g_multiPV << "\n";
         return;
     }
 }
 
-// POSITION command
+// Position command
 static void cmd_position(const std::string& line) {
     if (line.find("startpos") != std::string::npos) {
         g_board.set_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
@@ -196,7 +180,7 @@ static void cmd_position(const std::string& line) {
     }
 }
 
-// GO command
+// Go command
 static void cmd_go(const std::string& line) {
     tt_clear();
 
@@ -207,7 +191,7 @@ static void cmd_go(const std::string& line) {
     std::string tok;
     iss >> tok;
 
-    // GO divide / perftbreak
+    // Go divide / perftbreak
     {
         std::istringstream iss2(line);
         std::string goTok, mode;

@@ -10,9 +10,6 @@ inline Bitboard own_pieces(const Board& pos, Color c) {
         pos.pieceBB[c][KING];
 }
 
-
-//  Eval parameters
-
 EvalParams evalParams = {
     // pieceMG
     {100, 320, 330, 500, 900, 0},
@@ -183,9 +180,6 @@ EvalParams evalParams = {
     // Tempo
     10
 };
-
-
-//  Game phase
 
 static inline int mirror_sq(int sq) { return sq ^ 56; }
 

@@ -1,5 +1,5 @@
-#include "san.h"
 #include "movegen.h"
+#include "san.h"
 
 static bool gives_check(Board& pos, Move m) {
     State st;
