@@ -112,18 +112,34 @@ void update_history(Move m, int depth) {
     history[from][to] += depth * depth;
 }
 
+void update_capture_history(Board& pos, Move m, int depth) {
+    Piece attacker = pos.piece_at(from_sq(m));
+    Piece victim = is_ep(m) ? PAWN : pos.piece_at(to_sq(m));
+
+    if (attacker == NO_PIECE || victim == NO_PIECE)
+        return;
+
+    int bonus = std::min(2048, depth * depth * 16);
+
+    int& h = captureHistory[attacker][to_sq(m)][victim];
+
+    h += bonus - h * bonus / 16384;
+}
+
 int move_score(Board& pos, Move m, int ply) {
 
     if (is_capture(m)) {
-
-        Piece victim = pos.piece_at(to_sq(m));
+        Piece victim = is_ep(m) ? PAWN : pos.piece_at(to_sq(m));
         Piece attacker = pos.piece_at(from_sq(m));
 
-        if (victim != NO_PIECE)
+        if (victim != NO_PIECE && attacker != NO_PIECE) {
             return 30000000
-            + PieceValue[victim] * 100
-            - PieceValue[attacker];
+                + PieceValue[victim] * 100
+                - PieceValue[attacker]
+                + captureHistory[attacker][to_sq(m)][victim] / 4;
+        }
     }
+
     if (m == killers[ply][0])
         return 20000000;
 
@@ -479,8 +495,14 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         }
 
         if (alpha >= beta) {
-            killers[ply][1] = killers[ply][0];
-            killers[ply][0] = m;
+            if (capture) {
+                update_capture_history(pos, m, depth);
+            }
+            else {
+                killers[ply][1] = killers[ply][0];
+                killers[ply][0] = m;
+            }
+
             break;
         }
     }
@@ -563,6 +585,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
 
     std::memset(history, 0, sizeof(history));
     std::memset(killers, 0, sizeof(killers));
+    std::memset(captureHistory, 0, sizeof(captureHistory));
 
     MoveList legalMoves;
     generate_legal(pos, legalMoves);
