@@ -21,16 +21,17 @@ Move currentPV[128];
 
 static Move killers[128][2];
 
+constexpr int MAX_PLY = 128;
+
 static int captureHistory[6][64][6];
 static int history[64][64];
+static int staticEval[MAX_PLY];
 
 static int pvIdx = 0;
 static int pvLast = 0;
 static int multiPV = 1;
 
 static constexpr int ASPIRATION_WINDOW = 25;
-
-constexpr int MAX_PLY = 128;
 
 int finalPV_len = 0;
 int finalScore = 0;
@@ -337,9 +338,18 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
 
     int eval = evaluate(pos);
 
+    bool improving = false;
+
+    if (ply >= 2) {
+        // Compare against the static evaluation two plies earlier.
+        improving = eval > staticEval[ply - 2];
+    }
+
+    staticEval[ply] = eval;
+
     // Reverse Futility Pruning (RFP)
     if (depth <= 6 && !rootNode && !in_check(pos, pos.stm) 
-        && !is_decisive(beta) && beta <= eval - 100 * depth)
+        && !is_decisive(beta) && beta <= eval - (100 * depth + (improving ? 50 : 0)))
         return eval;
 
 
