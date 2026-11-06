@@ -695,6 +695,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
                     }
 
                     alpha = std::max(-VALUE_INFINITE, alpha - window);
+                    beta = (alpha + beta) / 2;
                     window *= 2;
                 }
                 else if (score >= beta) {
