@@ -415,31 +415,18 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
             }
         }
 
-        Move ParentMove = m;
-        int ParentCurrMove = i + 1;
-
-        bool capture = is_capture(m);
-        bool promotion = is_promo(m);
-
-        State st;
-        pos.make_move(m, st);
-
-        bool isCheck = in_check(pos, pos.stm);
-        bool quiet = !capture && !promotion && !isCheck;
-
-        ++moveCount;
-
-        int score;
+        int newDepth = depth - 1;
         int reduction = 0;
         int extension = 0;
-        int newDepth = depth - 1;
+
+        bool isCheck = in_check(pos, pos.stm);
 
         if (isCheck)
             extension++;
 
         // Singular Extensions
-        if (!rootNode && depth >= 6 && ttMove != 0 && ttEntryFound && ttEntry.bestMove ==
-            ttMove && ttEntry.depth >= depth - 3 && (ttEntry.flag == TT_LOWER || ttEntry.flag == TT_EXACT) &&
+        if (!rootNode && depth >= 6 && ttMove != 0 && m == ttMove && ttEntryFound && ttEntry.bestMove ==
+            ttMove && ttEntry.depth >= depth - 3 && ttEntry.flag != TT_UPPER &&
             !is_decisive(ttEntry.score) && !in_check(pos, pos.stm))
         {
             int singularBeta = ttEntry.score - 2 * depth;
@@ -449,7 +436,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
             int verificationPVLen = 0;
 
             int verificationScore = negamax<NonPV>(pos, singularDepth, ply, singularBeta - 1, singularBeta,
-                                                  verificationPV, verificationPVLen, true, ttMove);
+                verificationPV, verificationPVLen, true, ttMove);
 
             if (interrupted)
                 return 0;
@@ -458,6 +445,21 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         }
 
         newDepth += extension;
+
+        Move ParentMove = m;
+        int ParentCurrMove = i + 1;
+
+        bool capture = is_capture(m);
+        bool promotion = is_promo(m);
+
+        State st;
+        pos.make_move(m, st);
+
+        bool quiet = !capture && !promotion && !isCheck;
+
+        ++moveCount;
+
+        int score;
 
         if (depth >= 3 && moveCount >= 4 && quiet) {
             reduction = int(0.75 + std::log(depth) * std::log(moveCount) / 2.25);
