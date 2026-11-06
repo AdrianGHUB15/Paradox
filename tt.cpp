@@ -133,6 +133,21 @@ void tt_store(uint64_t key, int depth, int ply, int score, TTFlag flag, Move bes
     entry.flag = flag;
 }
 
+bool tt_get_entry(uint64_t key, int ply, TTEntry& result) {
+    if (!TT || TTSize == 0)
+        return false;
+
+    TTEntry& entry = TT[tt_index(key)];
+
+    if (entry.key != key)
+        return false;
+
+    result = entry;
+    result.score = score_from_tt(result.score, ply);
+
+    return true;
+}
+
 uint16_t tt_hashfull() {
     if (!TT || TTSize == 0)
         return 0;

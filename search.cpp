@@ -289,7 +289,7 @@ int qsearch(Board& pos, int alpha, int beta, int ply) {
     return alpha;
 }
 template<NodeType nodeType>
-int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int& pv_len, bool cutNode) {
+int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int& pv_len, bool cutNode, Move excludedMove = 0) {
 
     int originalAlpha = alpha;
 
@@ -331,9 +331,12 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     int ttScore = 0;
 
     if (tt_probe(pos.hash, depth, ply, alpha, beta, ttScore, ttMove)) {
-        if (ply != 0 && (!PvNode || multiPV == 1))
+        if (excludedMove == 0 && ply != 0 && (!PvNode || multiPV == 1))
             return ttScore;
     }
+
+    TTEntry ttEntry{};
+    bool ttEntryFound = tt_get_entry(pos.hash, ply, ttEntry);
 
     int eval = evaluate(pos);
 
@@ -386,9 +389,15 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
 
     int childPV_len = 0;
     int moveCount = 0;
+    int searchedMoves = 0;
 
     for (int i = 0; i < list.size; i++) {
         Move m = list.moves[i];
+
+        if (m == excludedMove)
+            continue;
+
+        ++searchedMoves;
 
         if (rootNode) {
             if (pvIdx > 0) {
@@ -423,9 +432,32 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         int score;
         int reduction = 0;
         int extension = 0;
+        int newDepth = depth - 1;
 
         if (isCheck)
             extension++;
+
+        // Singular Extensions
+        if (!rootNode && depth >= 6 && ttMove != 0 && ttEntryFound && ttEntry.bestMove ==
+            ttMove && ttEntry.depth >= depth - 3 && (ttEntry.flag == TT_LOWER || ttEntry.flag == TT_EXACT) &&
+            !is_decisive(ttEntry.score) && !in_check(pos, pos.stm))
+        {
+            int singularBeta = ttEntry.score - 2 * depth;
+            int singularDepth = newDepth / 2;
+
+            Move verificationPV[128];
+            int verificationPVLen = 0;
+
+            int verificationScore = negamax<NonPV>(pos, singularDepth, ply, singularBeta - 1, singularBeta,
+                                                  verificationPV, verificationPVLen, true, ttMove);
+
+            if (interrupted)
+                return 0;
+
+            extension += verificationScore < singularBeta;
+        }
+
+        newDepth += extension;
 
         if (depth >= 3 && moveCount >= 4 && quiet) {
             reduction = int(0.75 + std::log(depth) * std::log(moveCount) / 2.25);
@@ -437,27 +469,29 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
             reduction = std::max(reduction, 0);
         }
 
+        newDepth -= reduction;
+
         if (showCurrMove && rootNode && nodes > nodes_printing) {
             std::cout << "info depth " << depth
-                << " search depth " << depth + extension - reduction
+                << " search depth " << newDepth
                 << " currmove " << move_to_string(ParentMove)
                 << " currmovenumber " << ParentCurrMove
                 << " nodes " << nodes << '\n';
         }
 
         if (moveCount == 1 && PvNode) {
-            score = -negamax<PV>(pos, depth - 1 + extension, ply + 1, -beta, -alpha, childPV, childPV_len, false);
+            score = -negamax<PV>(pos, newDepth, ply + 1, -beta, -alpha, childPV, childPV_len, false);
         }
         else {
             // Later moves: reduced-depth scout search.
-            score = -negamax<NonPV>(pos, depth - 1 - reduction + extension, ply + 1, -alpha - 1, -alpha, childPV, childPV_len, !cutNode);
+            score = -negamax<NonPV>(pos, newDepth, ply + 1, -alpha - 1, -alpha, childPV, childPV_len, !cutNode);
 
             if (!interrupted && reduction > 0 && score > alpha) {
-                score = -negamax<NonPV>(pos, depth - 1 + extension, ply + 1, -alpha - 1, -alpha, childPV, childPV_len, !cutNode);
+                score = -negamax<NonPV>(pos, newDepth + reduction, ply + 1, -alpha - 1, -alpha, childPV, childPV_len, !cutNode);
             }
 
             if (!interrupted && score > alpha && score < beta && PvNode) {
-                score = -negamax<PV>(pos, depth - 1 + extension, ply + 1, -beta, -alpha, childPV, childPV_len, false);
+                score = -negamax<PV>(pos, newDepth + reduction, ply + 1, -beta, -alpha, childPV, childPV_len, false);
             }
         }
 
@@ -507,7 +541,12 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
             break;
         }
     }
-    if (!interrupted) {
+
+    if (excludedMove != 0 && searchedMoves == 0)
+        return alpha;
+
+    if (!interrupted && excludedMove == 0) {
+
 
         TTFlag flag;
 

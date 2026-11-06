@@ -26,4 +26,6 @@ bool tt_probe(uint64_t key, int depth, int ply, int alpha, int beta, int& score,
 
 Move tt_get_move(uint64_t key);
 
+bool tt_get_entry(uint64_t key, int ply, TTEntry& entry);
+
 uint16_t tt_hashfull();
