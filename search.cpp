@@ -446,12 +446,12 @@ int negamax(Board &pos, int depth, int ply, int alpha, int beta, Move pv[], int 
             depth <= 4 &&
             moveCount > 0 &&
             m != ttMove &&
+            capture &&
             !in_check(pos, pos.stm) &&
             !is_decisive(alpha) &&
             !is_decisive(beta))
         {
-            int see_threshold = capture ? -90 * depth : -50 * depth;
-            if (see(pos, m) < see_threshold)
+            if (see(pos, m) < -90 * depth)
                 continue;
         }
         State st;
