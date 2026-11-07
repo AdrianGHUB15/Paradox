@@ -69,14 +69,6 @@ enum NodeType
     Root
 };
 
-static bool gives_check(Board& pos, Move m) {
-    State st;
-    pos.make_move(m, st);
-    bool check = in_check(pos, pos.stm);
-    pos.unmake_move(st);
-    return check;
-}
-
 static std::vector<RootMove> rootMoves;
 
 std::chrono::steady_clock::time_point startTime;
@@ -450,12 +442,15 @@ int negamax(Board &pos, int depth, int ply, int alpha, int beta, Move pv[], int 
         bool capture = is_capture(m);
         bool promotion = is_promo(m);
 
-        if (!rootNode && depth <= 4 && moveCount > 0 && m != ttMove &&
-            capture && !in_check(pos, pos.stm) &&
-            !gives_check(pos, m) &&
-            !is_decisive(alpha) && !is_decisive(beta))
+        if (!rootNode &&
+            depth <= 6 &&
+            !is_decisive(alpha) &&
+            !is_decisive(beta) &&
+            !in_check(pos, !pos.stm)
+        )
         {
-            if (see(pos, m) < -90 * depth)
+            int see_threshold = capture ? -90 * depth : -50 * depth;
+            if (see(pos, m) < see_threshold)
                 continue;
         }
         State st;
