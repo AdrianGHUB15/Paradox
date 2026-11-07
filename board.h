@@ -140,7 +140,7 @@ inline bool Board::make_move(Move m, State& st) {
     Piece pc = piece_at(from);
     if (pc == NO_PIECE)
         return false;
-    
+
     Bitboard fromBB = 1ULL << from;
     Bitboard toBB = 1ULL << to;
 
@@ -187,6 +187,12 @@ inline bool Board::make_move(Move m, State& st) {
             }
         }
     }
+
+    // Update the 50-move rule clock
+    if (pc == PAWN || flag == FLAG_CAPTURE || flag == FLAG_ENPASSANT)
+        halfmoveClock = 0;
+    else
+        halfmoveClock++;
 
     // remove piece from source
     pieceBB[us][pc] &= ~fromBB;
