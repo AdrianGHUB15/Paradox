@@ -443,7 +443,9 @@ int negamax(Board &pos, int depth, int ply, int alpha, int beta, Move pv[], int 
         bool promotion = is_promo(m);
 
         if (!rootNode &&
-            depth <= 6 &&
+            depth <= 4 &&
+            moveCount > 0 &&
+            m != ttMove &&
             !in_check(pos, pos.stm) &&
             !is_decisive(alpha) &&
             !is_decisive(beta))
