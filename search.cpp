@@ -52,7 +52,8 @@ bool infiniteSearch = false;
 bool interrupted = false;
 bool showCurrMove = true;
 
-struct RootMove {
+struct RootMove
+{
     Move move = 0;
     Move pv[128]{};
 
@@ -61,7 +62,8 @@ struct RootMove {
     int seldepth = 0;
 };
 
-enum NodeType {
+enum NodeType
+{
     NonPV,
     PV,
     Root
@@ -71,24 +73,25 @@ static std::vector<RootMove> rootMoves;
 
 std::chrono::steady_clock::time_point startTime;
 
-
-static void sort_root_moves() {
+static void sort_root_moves()
+{
     std::stable_sort(rootMoves.begin(), rootMoves.end(),
-        [](const RootMove& a, const RootMove& b) {
-            return a.score 
-                 > b.score;
-        });
+                     [](const RootMove &a, const RootMove &b)
+                     {
+                         return a.score > b.score;
+                     });
 }
 
-uint64_t elapsed_ms() {
+uint64_t elapsed_ms()
+{
     return static_cast<uint64_t>(
         std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::steady_clock::now() - startTime
-        ).count()
-        );
+            std::chrono::steady_clock::now() - startTime)
+            .count());
 }
 
-uint64_t update_nps() {
+uint64_t update_nps()
+{
     uint64_t ms = elapsed_ms();
 
     if (ms == 0)
@@ -98,22 +101,24 @@ uint64_t update_nps() {
 }
 
 static constexpr int PieceValue[6] = {
-    100,   // pawn
-    320,   // knight
-    330,   // bishop
-    500,   // rook
-    900,   // queen
-    20000  // king
+    100,  // pawn
+    320,  // knight
+    330,  // bishop
+    500,  // rook
+    900,  // queen
+    20000 // king
 };
 
-void update_history(Move m, int depth) {
+void update_history(Move m, int depth)
+{
     int from = from_sq(m);
     int to = to_sq(m);
 
     history[from][to] += depth * depth;
 }
 
-void update_capture_history(Board& pos, Move m, int depth) {
+void update_capture_history(Board &pos, Move m, int depth)
+{
     Piece attacker = pos.piece_at(from_sq(m));
     Piece victim = is_ep(m) ? PAWN : pos.piece_at(to_sq(m));
 
@@ -122,22 +127,22 @@ void update_capture_history(Board& pos, Move m, int depth) {
 
     int bonus = std::min(2048, depth * depth * 16);
 
-    int& h = captureHistory[attacker][to_sq(m)][victim];
+    int &h = captureHistory[attacker][to_sq(m)][victim];
 
     h += bonus - h * bonus / 16384;
 }
 
-int move_score(Board& pos, Move m, int ply) {
+int move_score(Board &pos, Move m, int ply)
+{
 
-    if (is_capture(m)) {
+    if (is_capture(m))
+    {
         Piece victim = is_ep(m) ? PAWN : pos.piece_at(to_sq(m));
         Piece attacker = pos.piece_at(from_sq(m));
 
-        if (victim != NO_PIECE && attacker != NO_PIECE) {
-            return 30000000
-                + PieceValue[victim] * 100
-                - PieceValue[attacker]
-                + captureHistory[attacker][to_sq(m)][victim] / 4;
+        if (victim != NO_PIECE && attacker != NO_PIECE)
+        {
+            return 30000000 + PieceValue[victim] * 100 - PieceValue[attacker] + captureHistory[attacker][to_sq(m)][victim] / 4;
         }
     }
 
@@ -150,19 +155,23 @@ int move_score(Board& pos, Move m, int ply) {
     return history[from_sq(m)][to_sq(m)];
 }
 
-bool is_win(int score) {
+bool is_win(int score)
+{
     return score >= MATE - 1000;
 }
 
-bool is_loss(int score) {
+bool is_loss(int score)
+{
     return score <= -MATE + 1000;
 }
 
-bool is_decisive(int score) {
+bool is_decisive(int score)
+{
     return is_win(score) || is_loss(score);
 }
 
-bool time_up() {
+bool time_up()
+{
     if (stopRequested)
         return true;
 
@@ -183,33 +192,39 @@ bool time_up() {
 }
 
 void print_info(int depth, int seldepth, int score, uint64_t ms,
-    uint64_t nodes, uint64_t nps, uint16_t hashfull,
-    Move pv[], int pv_len, const char* bound = nullptr, int multipvIndex = 1)
+                uint64_t nodes, uint64_t nps, uint16_t hashfull,
+                Move pv[], int pv_len, const char *bound = nullptr, int multipvIndex = 1)
 {
-    auto is_mate = [&](int s) {
-        return s >= MATE - 1000;   // delivering mate
-        };
+    auto is_mate = [&](int s)
+    {
+        return s >= MATE - 1000; // delivering mate
+    };
 
-    auto is_mated = [&](int s) {
-        return s <= -MATE + 1000;  // being mated
-        };
+    auto is_mated = [&](int s)
+    {
+        return s <= -MATE + 1000; // being mated
+    };
 
-    auto score_to_mate = [&](int s) {
+    auto score_to_mate = [&](int s)
+    {
         int plies = (s > 0 ? MATE - s : MATE + s);
         return (plies + 1) / 2;
-        };
+    };
 
     printf("info depth %d seldepth %d", depth, seldepth);
 
     printf(" multipv %d", multipvIndex);
 
-    if (is_mate(score)) {
+    if (is_mate(score))
+    {
         printf(" score mate %d", score_to_mate(score));
     }
-    else if (is_mated(score)) {
+    else if (is_mated(score))
+    {
         printf(" score mate -%d", score_to_mate(score));
     }
-    else {
+    else
+    {
         printf(" score cp %d", score);
     }
 
@@ -217,12 +232,13 @@ void print_info(int depth, int seldepth, int score, uint64_t ms,
         printf(" %s", bound);
 
     printf(" time %llu nodes %llu nps %llu hashfull %llu pv",
-        static_cast<unsigned long long>(ms),
-        static_cast<unsigned long long>(nodes),
-        static_cast<unsigned long long>(nps),
-        static_cast<unsigned long long>(hashfull));
+           static_cast<unsigned long long>(ms),
+           static_cast<unsigned long long>(nodes),
+           static_cast<unsigned long long>(nps),
+           static_cast<unsigned long long>(hashfull));
 
-    for (int i = 0; i < pv_len; i++) {
+    for (int i = 0; i < pv_len; i++)
+    {
         std::string s = move_to_string(pv[i]);
         printf(" %s", s.c_str());
     }
@@ -231,8 +247,9 @@ void print_info(int depth, int seldepth, int score, uint64_t ms,
     fflush(stdout);
 }
 
-template<NodeType nodeType>
-int qsearch(Board& pos, int alpha, int beta, int ply) {
+template <NodeType nodeType>
+int qsearch(Board &pos, int alpha, int beta, int ply)
+{
 
     static_assert(nodeType != Root);
 
@@ -243,7 +260,8 @@ int qsearch(Board& pos, int alpha, int beta, int ply) {
 
     seldepth = std::max(seldepth, ply);
 
-    if (time_up()) {
+    if (time_up())
+    {
         interrupted = true;
         return 0;
     }
@@ -259,7 +277,8 @@ int qsearch(Board& pos, int alpha, int beta, int ply) {
     MoveList list;
     generate_legal(pos, list);
 
-    for (int i = 0; i < list.size; i++) {
+    for (int i = 0; i < list.size; i++)
+    {
 
         Move m = list.moves[i];
 
@@ -288,8 +307,9 @@ int qsearch(Board& pos, int alpha, int beta, int ply) {
 
     return alpha;
 }
-template<NodeType nodeType>
-int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int& pv_len, bool cutNode) {
+template <NodeType nodeType>
+int negamax(Board &pos, int depth, int ply, int alpha, int beta, Move pv[], int &pv_len, bool cutNode)
+{
 
     int originalAlpha = alpha;
 
@@ -304,12 +324,14 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     if (pos.is_repetition() && ply > 0)
         return 0;
 
-    if (time_up()) {
+    if (time_up())
+    {
         interrupted = true;
         return 0;
     }
 
-    if (!rootNode) {
+    if (!rootNode)
+    {
         alpha = std::max(alpha, -MATE + ply);
         beta = std::min(beta, MATE - ply - 1);
 
@@ -330,7 +352,8 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     Move ttMove = 0;
     int ttScore = 0;
 
-    if (tt_probe(pos.hash, depth, ply, alpha, beta, ttScore, ttMove)) {
+    if (tt_probe(pos.hash, depth, ply, alpha, beta, ttScore, ttMove))
+    {
         if (ply != 0 && (!PvNode || multiPV == 1))
             return ttScore;
     }
@@ -338,17 +361,16 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     int eval = evaluate(pos);
 
     // Reverse Futility Pruning (RFP)
-    if (depth <= 6 && !rootNode && !in_check(pos, pos.stm) 
-        && !is_decisive(beta) && beta <= eval - 100 * depth)
+    if (depth <= 6 && !rootNode && !in_check(pos, pos.stm) && !is_decisive(beta) && beta <= eval - 100 * depth)
         return eval;
-
 
     int bestScore = -VALUE_INFINITE;
 
     MoveList list;
     generate_legal(pos, list);
 
-    if (list.size == 0) {
+    if (list.size == 0)
+    {
         pv_len = 0;
         if (in_check(pos, pos.stm))
             return -MATE + ply;
@@ -356,11 +378,14 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         return 0;
     }
 
-    if (ttMove != 0) {
+    if (ttMove != 0)
+    {
 
-        for (int i = 0; i < list.size; ++i) {
+        for (int i = 0; i < list.size; ++i)
+        {
 
-            if (list.moves[i] == ttMove) {
+            if (list.moves[i] == ttMove)
+            {
 
                 std::swap(list.moves[0], list.moves[i]);
                 break;
@@ -375,27 +400,32 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     if (ttMove != 0 && list.size > 0 && list.moves[0] == ttMove)
         sortStart = 1;
 
-    std::stable_sort(list.moves + sortStart, 
+    std::stable_sort(list.moves + sortStart,
                      list.moves + list.size,
-        [&](Move a, Move b) {
-            return move_score(pos, a, ply)
-                 > move_score(pos, b, ply);
-        });
+                     [&](Move a, Move b)
+                     {
+                         return move_score(pos, a, ply) > move_score(pos, b, ply);
+                     });
 
     Move childPV[128];
 
     int childPV_len = 0;
     int moveCount = 0;
 
-    for (int i = 0; i < list.size; i++) {
+    for (int i = 0; i < list.size; i++)
+    {
         Move m = list.moves[i];
 
-        if (rootNode) {
-            if (pvIdx > 0) {
+        if (rootNode)
+        {
+            if (pvIdx > 0)
+            {
                 bool alreadyUsed = false;
 
-                for (int j = 0; j < pvIdx; j++) {
-                    if (m == rootMoves[j].move) {
+                for (int j = 0; j < pvIdx; j++)
+                {
+                    if (m == rootMoves[j].move)
+                    {
                         alreadyUsed = true;
                         break;
                     }
@@ -412,6 +442,16 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         bool capture = is_capture(m);
         bool promotion = is_promo(m);
 
+        if (!rootNode &&
+            depth <= 6 &&
+            !in_check(pos, pos.stm) &&
+            !is_decisive(alpha) &&
+            !is_decisive(beta))
+        {
+            int see_threshold = capture ? -90 * depth : -50 * depth;
+            if (see(pos, m) < see_threshold)
+                continue;
+        }
         State st;
         pos.make_move(m, st);
 
@@ -427,7 +467,8 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         if (isCheck)
             extension++;
 
-        if (depth >= 3 && moveCount >= 4 && quiet) {
+        if (depth >= 3 && moveCount >= 4 && quiet)
+        {
             reduction = int(0.75 + std::log(depth) * std::log(moveCount) / 2.25);
 
             // Reduce less at PV nodes.
@@ -437,26 +478,31 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
             reduction = std::max(reduction, 0);
         }
 
-        if (showCurrMove && rootNode && nodes > nodes_printing) {
+        if (showCurrMove && rootNode && nodes > nodes_printing)
+        {
             std::cout << "info depth " << depth
-                << " search depth " << depth + extension - reduction
-                << " currmove " << move_to_string(ParentMove)
-                << " currmovenumber " << ParentCurrMove
-                << " nodes " << nodes << '\n';
+                      << " search depth " << depth + extension - reduction
+                      << " currmove " << move_to_string(ParentMove)
+                      << " currmovenumber " << ParentCurrMove
+                      << " nodes " << nodes << '\n';
         }
 
-        if (moveCount == 1 && PvNode) {
+        if (moveCount == 1 && PvNode)
+        {
             score = -negamax<PV>(pos, depth - 1 + extension, ply + 1, -beta, -alpha, childPV, childPV_len, false);
         }
-        else {
+        else
+        {
             // Later moves: reduced-depth scout search.
             score = -negamax<NonPV>(pos, depth - 1 - reduction + extension, ply + 1, -alpha - 1, -alpha, childPV, childPV_len, !cutNode);
 
-            if (!interrupted && reduction > 0 && score > alpha) {
+            if (!interrupted && reduction > 0 && score > alpha)
+            {
                 score = -negamax<NonPV>(pos, depth - 1 + extension, ply + 1, -alpha - 1, -alpha, childPV, childPV_len, !cutNode);
             }
 
-            if (!interrupted && score > alpha && score < beta && PvNode) {
+            if (!interrupted && score > alpha && score < beta && PvNode)
+            {
                 score = -negamax<PV>(pos, depth - 1 + extension, ply + 1, -beta, -alpha, childPV, childPV_len, false);
             }
         }
@@ -466,7 +512,8 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         if (interrupted)
             return 0;
 
-        if (score > bestScore) {
+        if (score > bestScore)
+        {
             bestScore = score;
 
             pv[0] = m;
@@ -475,7 +522,8 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
 
             pv_len = childPV_len + 1;
 
-            if (rootNode) {
+            if (rootNode)
+            {
                 rootMoves[pvIdx].move = m;
                 rootMoves[pvIdx].score = score;
 
@@ -488,18 +536,22 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
             }
         }
 
-        if (score > alpha) {
+        if (score > alpha)
+        {
             alpha = score;
 
             if (quiet)
                 update_history(m, depth);
         }
 
-        if (alpha >= beta) {
-            if (capture) {
+        if (alpha >= beta)
+        {
+            if (capture)
+            {
                 update_capture_history(pos, m, depth);
             }
-            else {
+            else
+            {
                 killers[ply][1] = killers[ply][0];
                 killers[ply][0] = m;
             }
@@ -507,7 +559,8 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
             break;
         }
     }
-    if (!interrupted) {
+    if (!interrupted)
+    {
 
         TTFlag flag;
 
@@ -527,10 +580,10 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     }
 
     return bestScore;
-
 }
 
-Move search_bestmove(Board& pos, const SearchLimits& limits) {
+Move search_bestmove(Board &pos, const SearchLimits &limits)
+{
     multiPV = std::max(1, limits.multipv);
     pvIdx = 0;
     pvLast = 0;
@@ -557,18 +610,23 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
     int inc = (pos.stm == WHITE ? limits.winc : limits.binc);
 
     // TIME LIMIT SETUP
-    if (limits.infinite) {
+    if (limits.infinite)
+    {
         TIME_LIMIT_MS = 0; // only stop ends search
     }
-    else if (limits.movetime > 0) {
+    else if (limits.movetime > 0)
+    {
         TIME_LIMIT_MS = limits.movetime;
     }
-    else if (limits.wtime > 0 || limits.btime > 0) {
+    else if (limits.wtime > 0 || limits.btime > 0)
+    {
 
-        if (limits.movestogoProvided) {
+        if (limits.movestogoProvided)
+        {
             TIME_LIMIT_MS = time / limits.movestogo + inc / 2;
         }
-        else {
+        else
+        {
             TIME_LIMIT_MS = time / 20 + inc / 2;
         }
         if (TIME_LIMIT_MS > time)
@@ -577,7 +635,8 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
         if (TIME_LIMIT_MS < 10)
             TIME_LIMIT_MS = 10;
     }
-    else {
+    else
+    {
         TIME_LIMIT_MS = 0; // no limit → infinite unless stopRequested
         infiniteSearch = true;
     }
@@ -593,13 +652,15 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
 
     rootMoves.clear();
 
-    for (int i = 0; i < legalMoves.size; ++i) {
+    for (int i = 0; i < legalMoves.size; ++i)
+    {
         RootMove rm;
         rm.move = legalMoves.moves[i];
         rootMoves.push_back(rm);
     }
 
-    if (rootMoves.size() == 1 && !limits.movetime) {
+    if (rootMoves.size() == 1 && !limits.movetime)
+    {
         TIME_LIMIT_MS = std::min(TIME_LIMIT_MS, 500);
     }
 
@@ -617,11 +678,13 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
 
     int deepenDepth = limits.depth > 0 ? std::min(limits.depth, MAX_PLY) : MAX_PLY;
 
-    for (int depth = 1; depth <= deepenDepth; depth++) {
+    for (int depth = 1; depth <= deepenDepth; depth++)
+    {
         pvIdx = 0;
         pvLast = std::min(multiPV, static_cast<int>(rootMoves.size())) - 1;
 
-        for (auto& rm : rootMoves) {
+        for (auto &rm : rootMoves)
+        {
             rm.score = -VALUE_INFINITE;
             rm.pv_len = 0;
         }
@@ -631,56 +694,65 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
         rootDepth = depth;
 
         // --- TIME MANAGEMENT: stop if we can't afford depth+1 ---
-        if (timeManaged && !limits.movetime && depth >= 2 && finalPV_len > 0) {
+        if (timeManaged && !limits.movetime && depth >= 2 && finalPV_len > 0)
+        {
             auto now = std::chrono::steady_clock::now();
             int elapsed = (int)std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
 
-            if (elapsed <= 0) elapsed = 1;
+            if (elapsed <= 0)
+                elapsed = 1;
 
             int time_left = TIME_LIMIT_MS - elapsed;
 
-            if (time_left <= 0) {
+            if (time_left <= 0)
+            {
                 std::cout << "info string no time left, stopping at depth "
-                    << (depth - 1) << "\n";
+                          << (depth - 1) << "\n";
                 return finalPV[0];
             }
 
             // Estimate cost of next iteration from previous depth
             uint64_t nodesThisDepth = nodes - lastDepthNodes;
 
-            if (nodesThisDepth == 0) nodesThisDepth = 1;
+            if (nodesThisDepth == 0)
+                nodesThisDepth = 1;
 
             uint64_t nps = nodes * 1000ULL / elapsed;
 
-            if (nps == 0) nps = 1;
+            if (nps == 0)
+                nps = 1;
 
             // Simple model: next depth ≈ 2x current depth cost
             uint64_t estimatedNextNodes = nodesThisDepth * 2;
             int estimatedNextMs = (int)(estimatedNextNodes * 1000ULL / nps);
 
-            if (time_left < estimatedNextMs) {
+            if (time_left < estimatedNextMs)
+            {
                 std::cout << "info string not enough time for depth "
-                    << (depth + 1) << ", stopping at depth "
-                    << depth << "\n";
+                          << (depth + 1) << ", stopping at depth "
+                          << depth << "\n";
                 return finalPV[0];
             }
 
             lastDepthNodes = nodes;
         }
 
-        for (pvIdx = 0; pvIdx <= pvLast; ++pvIdx) {
+        for (pvIdx = 0; pvIdx <= pvLast; ++pvIdx)
+        {
 
             int alpha = -VALUE_INFINITE;
             int beta = VALUE_INFINITE;
             int score;
             int window = ASPIRATION_WINDOW;
 
-            if (depth >= 4 && finalPV_len > 0 && pvIdx == 0) {
+            if (depth >= 4 && finalPV_len > 0 && pvIdx == 0)
+            {
                 alpha = finalScore - window;
                 beta = finalScore + window;
             }
 
-            while (true) {
+            while (true)
+            {
                 seldepth = 0;
 
                 score = negamax<Root>(pos, rootDepth, 0, alpha, beta, pv, pv_len, false);
@@ -688,25 +760,30 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
                 if (interrupted)
                     break;
 
-                if (score <= alpha) {
-                    if (nodes > nodes_printing) {
+                if (score <= alpha)
+                {
+                    if (nodes > nodes_printing)
+                    {
                         print_info(rootDepth, seldepth, score, elapsed_ms(), nodes, update_nps(),
-                            tt_hashfull(), pv, pv_len, "upperbound", pvIdx + 1);
+                                   tt_hashfull(), pv, pv_len, "upperbound", pvIdx + 1);
                     }
 
                     alpha = std::max(-VALUE_INFINITE, alpha - window);
                     window *= 2;
                 }
-                else if (score >= beta) {
-                    if (nodes > nodes_printing) {
+                else if (score >= beta)
+                {
+                    if (nodes > nodes_printing)
+                    {
                         print_info(rootDepth, seldepth, score, elapsed_ms(), nodes, update_nps(),
-                            tt_hashfull(), pv, pv_len, "lowerbound", pvIdx + 1);
+                                   tt_hashfull(), pv, pv_len, "lowerbound", pvIdx + 1);
                     }
 
                     beta = std::min(VALUE_INFINITE, beta + window);
                     window *= 2;
                 }
-                else {
+                else
+                {
                     break;
                 }
             }
@@ -723,7 +800,8 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
         uint64_t ms = elapsed_ms();
         uint64_t nps = update_nps();
 
-        if (!interrupted) {
+        if (!interrupted)
+        {
             finalScore = rootMoves[0].score;
             finalPV_len = rootMoves[0].pv_len;
             finalSeldepth = rootMoves[0].seldepth;
@@ -731,24 +809,25 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
             for (int i = 0; i < finalPV_len; i++)
                 finalPV[i] = rootMoves[0].pv[i];
 
-            for (int i = 0; i <= pvLast; i++) {
+            for (int i = 0; i <= pvLast; i++)
+            {
                 print_info(rootDepth, rootMoves[i].seldepth, rootMoves[i].score,
-                    ms, nodes, nps, tt_hashfull(),
-                    rootMoves[i].pv, rootMoves[i].pv_len, nullptr, i + 1);
+                           ms, nodes, nps, tt_hashfull(),
+                           rootMoves[i].pv, rootMoves[i].pv_len, nullptr, i + 1);
             }
 
             continue;
         }
 
-        if (interrupted && (timeManaged || limits.nodes > 0)) {
+        if (interrupted && (timeManaged || limits.nodes > 0))
+        {
 
             std::cout << "info string search finished before depth "
-                << depth << " was completed, falling back to depth "
-                << (depth - 1) << "\n";
+                      << depth << " was completed, falling back to depth "
+                      << (depth - 1) << "\n";
 
             if (currentPV_len > 0)
                 print_info(depth, currentSeldepth, currentScore, ms, nodes, nps, tt_hashfull(), currentPV, currentPV_len);
-
 
             if (finalPV_len > 0)
                 print_info(depth - 1, finalSeldepth, finalScore, ms, nodes, nps, tt_hashfull(), finalPV, finalPV_len);
@@ -762,7 +841,8 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
         if (limits.nodes > 0 && nodes >= limits.nodes)
             break;
     }
-    if (limits.bench_mode) {
+    if (limits.bench_mode)
+    {
         uint64_t ms = elapsed_ms();
         uint64_t nps = update_nps();
 
@@ -776,10 +856,10 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
 
     // After iterative deepening loop ends
     if (finalPV_len > 0)
-        return finalPV[0];        // last completed depth
+        return finalPV[0]; // last completed depth
 
     if (currentPV_len > 0)
-        return currentPV[0];      // partial PV from interrupted depth
+        return currentPV[0]; // partial PV from interrupted depth
 
-    return bestMove;              // fallback (should never be 0 now)
+    return bestMove; // fallback (should never be 0 now)
 }
