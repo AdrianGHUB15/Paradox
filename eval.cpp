@@ -301,6 +301,21 @@ int evaluate(const Board& pos) {
             eg += sign * evalParams.bishopPairEG;
         }
 
+        // Rook on 7th rank
+        {
+            Bitboard rooks = pos.pieceBB[col][ROOK];
+
+            int seventhRank = (col == WHITE) ? 6 : 1;
+
+            int count = popcount(rooks & rank_mask[seventhRank]);
+
+            if (count) {
+                int bonus = count * 20;
+                mg += sign * bonus;
+                eg += sign * bonus;
+            }
+        }
+
         // Rook on open / semi-open file
         {
             Bitboard rooks = pos.pieceBB[col][ROOK];
