@@ -9,6 +9,7 @@
 #include <chrono>
 #include <cmath>
 #include <iostream>
+#include <unordered_map>
 #include <vector>
 
 uint64_t nodes = 0;
@@ -59,6 +60,7 @@ struct RootMove {
     int score = -VALUE_INFINITE;
     int pv_len = 0;
     int seldepth = 0;
+    uint64_t effort = 0;
 };
 
 enum NodeType {
@@ -68,6 +70,7 @@ enum NodeType {
 };
 
 static std::vector<RootMove> rootMoves;
+static std::unordered_map<Move, uint64_t> rootMoveEffort;
 
 std::chrono::steady_clock::time_point startTime;
 
@@ -412,6 +415,8 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         bool capture = is_capture(m);
         bool promotion = is_promo(m);
 
+        uint64_t moveNodesStart = nodes;
+
         State st;
         pos.make_move(m, st);
 
@@ -462,6 +467,9 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         }
 
         pos.unmake_move(st);
+
+        if (rootNode)
+            rootMoveEffort[m] += nodes - moveNodesStart;
 
         if (interrupted)
             return 0;
@@ -599,6 +607,11 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
         rootMoves.push_back(rm);
     }
 
+    rootMoveEffort.clear();
+
+    for (int i = 0; i < legalMoves.size; ++i)
+        rootMoveEffort[legalMoves.moves[i]] = 0;
+
     if (rootMoves.size() == 1 && !limits.movetime) {
         TIME_LIMIT_MS = std::min(TIME_LIMIT_MS, 500);
     }
@@ -637,7 +650,18 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
 
             if (elapsed <= 0) elapsed = 1;
 
-            int time_left = TIME_LIMIT_MS - elapsed;
+            uint64_t nodesEffort = rootMoves[0].effort * 100000ULL
+                / std::max(uint64_t(1), nodes);
+
+            double effortFactor = 0.969
+                + (0.714 - 0.969)
+                * (double(nodesEffort) - 75800.0)
+                / (104510.0 - 75800.0);
+
+            effortFactor = std::clamp(effortFactor, 0.693, 0.838);
+
+            int effectiveTimeLimit = int(TIME_LIMIT_MS * effortFactor);
+            int time_left = effectiveTimeLimit - elapsed;
 
             if (time_left <= 0) {
                 std::cout << "info string no time left, stopping at depth "
@@ -718,6 +742,13 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
             rootMoves[pvIdx].seldepth = seldepth;
 
             sort_root_moves();
+
+            for (auto& rm : rootMoves) {
+                auto it = rootMoveEffort.find(rm.move);
+
+                if (it != rootMoveEffort.end())
+                    rm.effort = it->second;
+            }
         }
 
         uint64_t ms = elapsed_ms();
