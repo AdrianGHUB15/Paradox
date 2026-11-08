@@ -323,6 +323,23 @@ int evaluate(const Board& pos) {
             }
         }
 
+        // Bishop long diagonal bonus
+        {
+            Bitboard bishops = pos.pieceBB[col][BISHOP];
+
+            while (bishops) {
+                int sq = pop_lsb(bishops);
+                Bitboard attacks = bishop_attack(sq, occ);
+
+                int mobility = popcount(attacks & ~own);
+
+                if (mobility >= 7) {
+                    mg += sign * 10;
+                    eg += sign * 10;
+                }
+            }
+        }
+
         // Passed pawns
         {
             Bitboard pawns = pos.pieceBB[col][PAWN];
