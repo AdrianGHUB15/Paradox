@@ -180,14 +180,8 @@ void generate_pseudo(const Board& pos, MoveList& list) {
 }
 
 // Pins + checkmask
-static void compute_pins_and_checkmask(
-    const Board& pos,
-    Color us,
-    Bitboard& pinned,
-    Bitboard pinRay[64],
-    Bitboard& checkmask,
-    bool& inCheck,
-    bool& doubleCheck)
+static void compute_pins_and_checkmask(const Board& pos, Color us, Bitboard& pinned, Bitboard pinRay[64], 
+                                       Bitboard& checkmask, bool& inCheck, bool& doubleCheck)
 {
     Color them = Color(us ^ 1);
     int ksq = pos.kingSq[us];
@@ -271,15 +265,7 @@ static void compute_pins_and_checkmask(
 
     if (checkers) {
         inCheck = true;
-
-        Bitboard tmp = checkers;
-        int cnt = 0;
-        while (tmp) {
-            pop_lsb(tmp);
-            ++cnt;
-        }
-        if (cnt > 1)
-            doubleCheck = true;
+        doubleCheck = popcount(checkers) > 1;
 
         if (!slidingChecker)
             checkmask &= checkers;
