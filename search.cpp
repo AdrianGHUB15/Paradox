@@ -27,6 +27,7 @@ static int history[64][64];
 static int pvIdx = 0;
 static int pvLast = 0;
 static int multiPV = 1;
+static int bestMoveChanges = 0;
 
 static constexpr int ASPIRATION_WINDOW = 25;
 
@@ -469,6 +470,10 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         if (score > bestScore) {
             bestScore = score;
 
+
+            if (rootNode && moveCount > 1 && pvIdx == 0)
+                ++bestMoveChanges;
+
             pv[0] = m;
             for (int j = 0; j < childPV_len; j++)
                 pv[j + 1] = childPV[j];
@@ -637,6 +642,18 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
 
             if (elapsed <= 0) elapsed = 1;
 
+            // Stable best move: use less time.
+            // Unstable best move: allow more time.
+            int stability = std::min(bestMoveChanges, 6);
+
+            int softTimeLimit = TIME_LIMIT_MS * (70 + stability * 5) / 100;
+
+            if (elapsed >= softTimeLimit) {
+                std::cout << "info string soft time limit reached, stopping at depth "
+                    << (depth - 1) << "\n";
+                return finalPV[0];
+            }
+
             int time_left = TIME_LIMIT_MS - elapsed;
 
             if (time_left <= 0) {
@@ -667,6 +684,8 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
 
             lastDepthNodes = nodes;
         }
+
+        bestMoveChanges = 0;
 
         for (pvIdx = 0; pvIdx <= pvLast; ++pvIdx) {
 
