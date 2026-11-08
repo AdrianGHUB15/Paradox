@@ -323,6 +323,38 @@ int evaluate(const Board& pos) {
             }
         }
 
+        // Connected pawns
+        {
+            Bitboard pawns = pos.pieceBB[col][PAWN];
+
+            for (int sq = 0; sq < 64; ++sq) {
+                if (!(pawns & (1ULL << sq)))
+                    continue;
+
+                int file = sq % 8;
+                int rank = sq / 8;
+
+                Bitboard support = 0;
+
+                if (file > 0)
+                    support |= (1ULL << (sq - 1));
+
+                if (file < 7)
+                    support |= (1ULL << (sq + 1));
+
+                if (col == WHITE)
+                    support |= (support << 8);
+                else
+                    support |= (support >> 8);
+
+                if (pawns & support) {
+                    int bonus = 8;
+                    mg += sign * bonus;
+                    eg += sign * bonus;
+                }
+            }
+        }
+
         // Passed pawns
         {
             Bitboard pawns = pos.pieceBB[col][PAWN];
