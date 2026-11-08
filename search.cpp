@@ -617,6 +617,9 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
 
     int deepenDepth = limits.depth > 0 ? std::min(limits.depth, MAX_PLY) : MAX_PLY;
 
+    int failedHighCnt = 0;
+    int failHighRecovery = 0;
+
     for (int depth = 1; depth <= deepenDepth; depth++) {
         pvIdx = 0;
         pvLast = std::min(multiPV, static_cast<int>(rootMoves.size())) - 1;
@@ -682,13 +685,16 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
 
             while (true) {
                 seldepth = 0;
+                int adjustedDepth = std::max(1, rootDepth - failedHighCnt - failHighRecovery);
 
-                score = negamax<Root>(pos, rootDepth, 0, alpha, beta, pv, pv_len, false);
+                score = negamax<Root>(pos, adjustedDepth, 0, alpha, beta, pv, pv_len, false);
 
                 if (interrupted)
                     break;
 
                 if (score <= alpha) {
+                    failedHighCnt = 0;
+
                     if (nodes > nodes_printing) {
                         print_info(rootDepth, seldepth, score, elapsed_ms(), nodes, update_nps(),
                             tt_hashfull(), pv, pv_len, "upperbound", pvIdx + 1);
@@ -698,6 +704,8 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
                     window *= 2;
                 }
                 else if (score >= beta) {
+                    failedHighCnt++;
+
                     if (nodes > nodes_printing) {
                         print_info(rootDepth, seldepth, score, elapsed_ms(), nodes, update_nps(),
                             tt_hashfull(), pv, pv_len, "lowerbound", pvIdx + 1);
@@ -719,6 +727,9 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
 
             sort_root_moves();
         }
+
+        if (failedHighCnt > 0)
+            failHighRecovery = (failedHighCnt + 1) / 2 + 2;
 
         uint64_t ms = elapsed_ms();
         uint64_t nps = update_nps();
