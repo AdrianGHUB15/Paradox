@@ -323,6 +323,31 @@ int evaluate(const Board& pos) {
             }
         }
 
+        // Isolated pawns
+        {
+            Bitboard pawns = pos.pieceBB[col][PAWN];
+
+            for (int file = 0; file < 8; ++file) {
+                Bitboard adjacentFiles = 0;
+
+                if (file > 0)
+                    adjacentFiles |= file_mask[file - 1];
+
+                if (file < 7)
+                    adjacentFiles |= file_mask[file + 1];
+
+                Bitboard isolated = pawns & file_mask[file] & ~adjacentFiles;
+
+                int count = popcount(isolated);
+
+                if (count) {
+                    int penalty = count * 10;
+                    mg -= sign * penalty;
+                    eg -= sign * penalty;
+                }
+            }
+        }
+
         // Passed pawns
         {
             Bitboard pawns = pos.pieceBB[col][PAWN];
