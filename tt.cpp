@@ -116,6 +116,22 @@ bool tt_probe(uint64_t key, int depth, int ply, int alpha, int beta, int& score,
     return false;
 }
 
+bool tt_get_entry(uint64_t key, int ply, TTEntry& out) {
+
+    if (!TT || TTSize == 0)
+        return false;
+
+    TTEntry& entry = TT[tt_index(key)];
+
+    if (entry.key != key)
+        return false;
+
+    out = entry;
+    out.score = score_from_tt(out.score, ply);
+
+    return true;
+}
+
 void tt_store(uint64_t key, int depth, int ply, int score, TTFlag flag, Move bestMove) {
 
     if (!TT || TTSize == 0)

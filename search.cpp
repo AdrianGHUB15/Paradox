@@ -289,7 +289,7 @@ int qsearch(Board& pos, int alpha, int beta, int ply) {
     return alpha;
 }
 template<NodeType nodeType>
-int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int& pv_len, bool cutNode) {
+int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int& pv_len, bool cutNode, Move excludedMove = 0) {
 
     int originalAlpha = alpha;
 
@@ -330,10 +330,24 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     Move ttMove = 0;
     int ttScore = 0;
 
-    if (tt_probe(pos.hash, depth, ply, alpha, beta, ttScore, ttMove)) {
+    if (excludedMove == 0 && tt_probe(pos.hash, depth, ply, alpha, beta, ttScore, ttMove)) {
         if (ply != 0 && (!PvNode || multiPV == 1))
             return ttScore;
     }
+
+    TTEntry ttEntry{};
+    bool ttEntryFound = tt_get_entry(pos.hash, ply, ttEntry);
+
+    bool singularCandidate =
+        !rootNode
+        && !PvNode
+        && ttEntryFound
+        && ttMove != 0
+        && ttEntry.bestMove == ttMove
+        && ttEntry.depth >= depth - 3
+        && ttEntry.flag == TT_UPPER
+        && ttEntry.score >= beta - 32 * depth
+        && !is_decisive(ttEntry.score);
 
     int eval = evaluate(pos);
 
@@ -390,6 +404,9 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     for (int i = 0; i < list.size; i++) {
         Move m = list.moves[i];
 
+        if (m == excludedMove)
+            continue;
+
         if (rootNode) {
             if (pvIdx > 0) {
                 bool alreadyUsed = false;
@@ -412,6 +429,39 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         bool capture = is_capture(m);
         bool promotion = is_promo(m);
 
+        int extension = 0;
+
+        if (m == ttMove && !excludedMove && !rootNode && depth >= 6 && ttEntryFound
+            && !is_decisive(ttEntry.score) && (ttEntry.flag & TT_LOWER) && ttEntry.depth >= depth - 3) {
+
+            int singularBeta = ttEntry.score - 2 * depth;
+            int singularDepth = (depth - 1) / 2;
+
+            Move verifyPV[128];
+            int verifyPV_len = 0;
+
+            int singularScore = negamax<NonPV>(pos, singularDepth, ply, singularBeta - 1, singularBeta, 
+                                               verifyPV, verifyPV_len, cutNode, m);
+
+            if (interrupted)
+                return 0;
+
+            if (singularScore < singularBeta) {
+                int doubleMargin = -2 + 204 * PvNode;
+                int tripleMargin = 70 + 279 * PvNode;
+
+                extension = 1
+                    + (singularScore < singularBeta - doubleMargin)
+                    + (singularScore < singularBeta - tripleMargin);
+            }
+            else if (singularScore >= beta && !is_decisive(singularScore)) {
+                return singularScore;
+            }
+            else if (ttEntry.score >= beta || cutNode) {
+                extension = -3;
+            }
+        }
+
         State st;
         pos.make_move(m, st);
 
@@ -422,7 +472,6 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
 
         int score;
         int reduction = 0;
-        int extension = 0;
 
         if (isCheck)
             extension++;
@@ -507,8 +556,11 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
             break;
         }
     }
-    if (!interrupted) {
 
+    if (moveCount == 0 && excludedMove != 0)
+        return alpha;
+
+    if (!interrupted && excludedMove == 0) {
         TTFlag flag;
 
         if (bestScore <= originalAlpha)
