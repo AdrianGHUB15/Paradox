@@ -303,6 +303,30 @@ void generate_legal(Board& pos, MoveList& list) {
 
     compute_pins_and_checkmask(pos, us, pinned, pinRay, checkmask, inCheck, doubleCheck);
 
+    if (doubleCheck) {
+        int ksq = pos.kingSq[us];
+        Bitboard kingMoves = KING_ATTACKS[ksq] & ~pos.colorBB[us];
+
+        while (kingMoves) {
+            int to = pop_lsb(kingMoves);
+            Move m = make_move(ksq, to, PROMO_NONE,
+                (pos.colorBB[them] & (1ULL << to))
+                ? FLAG_CAPTURE : FLAG_NONE);
+
+            State st;
+            if (!pos.make_move(m, st))
+                continue;
+
+            bool illegal = in_check(pos, us);
+            pos.unmake_move(st);
+
+            if (!illegal)
+                list.moves[list.size++] = m;
+        }
+
+        return;
+    }
+
     int ksq = pos.kingSq[us];
 
     for (int i = 0; i < pseudo.size; ++i) {
