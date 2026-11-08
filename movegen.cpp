@@ -32,9 +32,10 @@ void generate_pseudo(const Board& pos, MoveList& list) {
         int f = file_of(from);
 
         // Single push
-        Bitboard single = PAWN_PUSH[us][from];
-        if (single && !(occ & single)) {
-            int to = from + push;
+        int to = from + push;
+        Bitboard single = 1ULL << to;
+
+        if (on_board(to) && !(occ & single)) {
 
             if (r == promoRank) {
                 list.moves[list.size++] = make_move(from, to, PROMO_Q, FLAG_NONE);
