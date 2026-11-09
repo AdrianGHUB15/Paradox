@@ -7,15 +7,17 @@
 #include <cstring>
 
 struct State {
-    uint8_t   castling;
-    int       epSquare;
-    int       halfmoveClock;
-    int       kingSq[2];
-    Bitboard  pieceBB[2][6];
-    Bitboard  colorBB[2];
-    Bitboard  occupiedBB;
-    uint64_t  hash;
-    Color     stm;
+    Move move;
+    Piece capturedPiece;
+    int capturedSquare;
+
+    uint8_t castling;
+    int epSquare;
+    int halfmoveClock;
+    int kingSq[2];
+
+    uint64_t hash;
+    Color stm;
 };
 
 class Board {
@@ -117,18 +119,6 @@ inline bool in_check(const Board& pos, Color side) {
 inline bool Board::make_move(Move m, State& st) {
     nodes++;
 
-    // Save state
-    st.castling = castling;
-    st.epSquare = epSquare;
-    st.halfmoveClock = halfmoveClock;
-    st.kingSq[WHITE] = kingSq[WHITE];
-    st.kingSq[BLACK] = kingSq[BLACK];
-    std::memcpy(st.pieceBB, pieceBB, sizeof(pieceBB));
-    std::memcpy(st.colorBB, colorBB, sizeof(colorBB));
-    st.occupiedBB = occupiedBB;
-    st.hash = hash;
-    st.stm = stm;
-
     int from = from_sq(m);
     int to = to_sq(m);
     int promo = promo_of(m);
@@ -140,68 +130,77 @@ inline bool Board::make_move(Move m, State& st) {
     Piece pc = piece_at(from);
     if (pc == NO_PIECE)
         return false;
-    
+
+    // Save undo information
+    st.move = m;
+    st.capturedPiece = NO_PIECE;
+    st.capturedSquare = -1;
+
+    st.castling = castling;
+    st.epSquare = epSquare;
+    st.halfmoveClock = halfmoveClock;
+    st.kingSq[WHITE] = kingSq[WHITE];
+    st.kingSq[BLACK] = kingSq[BLACK];
+    st.hash = hash;
+    st.stm = stm;
+
     Bitboard fromBB = 1ULL << from;
     Bitboard toBB = 1ULL << to;
 
-    // --- VALIDATE CASTLING BEFORE MODIFYING BOARD ---
+    // Validate castling before modifying the board
     if (flag == FLAG_CASTLING) {
-        // White
         if (us == WHITE) {
-            if (to == 6) { // e1->g1
-                if (!(castling & CASTLE_WK)) { return false; }
-                if (in_check(*this, WHITE)) { return false; }
-                if (square_attacked(5, BLACK)) { return false; }
-                if (square_attacked(6, BLACK)) { return false; }
-                if (!(pieceBB[WHITE][ROOK] & (1ULL << 7))) { return false; }
+            if (to == 6) {
+                if (!(castling & CASTLE_WK)
+                    || in_check(*this, WHITE)
+                    || square_attacked(5, BLACK)
+                    || square_attacked(6, BLACK)
+                    || !(pieceBB[WHITE][ROOK] & (1ULL << 7)))
+                    return false;
             }
-            else if (to == 2) { // e1->c1
-                if (!(castling & CASTLE_WQ)) { return false; }
-                if (in_check(*this, WHITE))  { return false; }
-                if (square_attacked(3, BLACK)) { return false; }
-                if (square_attacked(2, BLACK)) { return false; }
-                if (!(pieceBB[WHITE][ROOK] & (1ULL << 0))) { return false; }
+            else if (to == 2) {
+                if (!(castling & CASTLE_WQ)
+                    || in_check(*this, WHITE)
+                    || square_attacked(3, BLACK)
+                    || square_attacked(2, BLACK)
+                    || !(pieceBB[WHITE][ROOK] & (1ULL << 0)))
+                    return false;
             }
-            else {
-                return false;
-            }
+            else return false;
         }
-        // Black
         else {
-            if (to == 62) { // e8->g8
-                if (!(castling & CASTLE_BK)) { return false; }
-                if (in_check(*this, BLACK)) { return false; }
-                if (square_attacked(61, WHITE)) { return false; }
-                if (square_attacked(62, WHITE)) { return false; }
-                if (!(pieceBB[BLACK][ROOK] & (1ULL << 63))) { return false; }
+            if (to == 62) {
+                if (!(castling & CASTLE_BK)
+                    || in_check(*this, BLACK)
+                    || square_attacked(61, WHITE)
+                    || square_attacked(62, WHITE)
+                    || !(pieceBB[BLACK][ROOK] & (1ULL << 63)))
+                    return false;
             }
-            else if (to == 58) { // e8->c8
-                if (!(castling & CASTLE_BQ)) { return false; }
-                if (in_check(*this, BLACK)) { return false; }
-                if (square_attacked(59, WHITE)) { return false; }
-                if (square_attacked(58, WHITE)) { return false; }
-                if (!(pieceBB[BLACK][ROOK] & (1ULL << 56))) { return false; }
+            else if (to == 58) {
+                if (!(castling & CASTLE_BQ)
+                    || in_check(*this, BLACK)
+                    || square_attacked(59, WHITE)
+                    || square_attacked(58, WHITE)
+                    || !(pieceBB[BLACK][ROOK] & (1ULL << 56)))
+                    return false;
             }
-            else {
-                return false;
-            }
+            else return false;
         }
     }
 
-    // remove piece from source
-    pieceBB[us][pc] &= ~fromBB;
-    colorBB[us] &= ~fromBB;
-    occupiedBB &= ~fromBB;
-    hash ^= ZP[us][pc][from];
-
-    // captures
+    // Find and save captured piece
     if (flag == FLAG_CAPTURE || flag == FLAG_ENPASSANT) {
-        int capSq = to;
-        if (flag == FLAG_ENPASSANT)
-            capSq = (us == WHITE ? to - 8 : to + 8);
+        int capSq = (flag == FLAG_ENPASSANT)
+            ? (us == WHITE ? to - 8 : to + 8)
+            : to;
 
         Piece cap = piece_at(capSq);
+
         if (cap != NO_PIECE) {
+            st.capturedPiece = cap;
+            st.capturedSquare = capSq;
+
             Bitboard capBB = 1ULL << capSq;
 
             pieceBB[them][cap] &= ~capBB;
@@ -209,7 +208,6 @@ inline bool Board::make_move(Move m, State& st) {
             occupiedBB &= ~capBB;
             hash ^= ZP[them][cap][capSq];
 
-            // captured rook → update castling rights
             if (capSq == 0)  castling &= ~2;
             if (capSq == 7)  castling &= ~1;
             if (capSq == 56) castling &= ~8;
@@ -217,7 +215,13 @@ inline bool Board::make_move(Move m, State& st) {
         }
     }
 
-    // king or rook moved → remove castling rights
+    // Remove moving piece from source
+    pieceBB[us][pc] &= ~fromBB;
+    colorBB[us] &= ~fromBB;
+    occupiedBB &= ~fromBB;
+    hash ^= ZP[us][pc][from];
+
+    // Update castling rights
     if (pc == KING) {
         if (us == WHITE) castling &= ~(1 | 2);
         else             castling &= ~(4 | 8);
@@ -229,8 +233,9 @@ inline bool Board::make_move(Move m, State& st) {
         if (from == 63) castling &= ~4;
     }
 
-    // promotions
+    // Handle promotion
     Piece newPc = pc;
+
     if (promo != PROMO_NONE) {
         newPc = (promo == PROMO_N ? KNIGHT :
             promo == PROMO_B ? BISHOP :
@@ -238,7 +243,7 @@ inline bool Board::make_move(Move m, State& st) {
             QUEEN);
     }
 
-    // add piece to destination
+    // Place moving piece on destination
     pieceBB[us][newPc] |= toBB;
     colorBB[us] |= toBB;
     occupiedBB |= toBB;
@@ -247,59 +252,38 @@ inline bool Board::make_move(Move m, State& st) {
     if (pc == KING)
         kingSq[us] = to;
 
-    // castling rook move (board already validated above)
+    // Move castling rook
     if (flag == FLAG_CASTLING) {
-        if (to == 6) { // white king side
-            pieceBB[WHITE][ROOK] &= ~(1ULL << 7);
-            pieceBB[WHITE][ROOK] |= (1ULL << 5);
-            colorBB[WHITE] &= ~(1ULL << 7);
-            colorBB[WHITE] |= (1ULL << 5);
-            occupiedBB &= ~(1ULL << 7);
-            occupiedBB |= (1ULL << 5);
-            hash ^= ZP[WHITE][ROOK][7];
-            hash ^= ZP[WHITE][ROOK][5];
-        }
-        else if (to == 2) { // white queen side
-            pieceBB[WHITE][ROOK] &= ~(1ULL << 0);
-            pieceBB[WHITE][ROOK] |= (1ULL << 3);
-            colorBB[WHITE] &= ~(1ULL << 0);
-            colorBB[WHITE] |= (1ULL << 3);
-            occupiedBB &= ~(1ULL << 0);
-            occupiedBB |= (1ULL << 3);
-            hash ^= ZP[WHITE][ROOK][0];
-            hash ^= ZP[WHITE][ROOK][3];
-        }
-        else if (to == 62) { // black king side
-            pieceBB[BLACK][ROOK] &= ~(1ULL << 63);
-            pieceBB[BLACK][ROOK] |= (1ULL << 61);
-            colorBB[BLACK] &= ~(1ULL << 63);
-            colorBB[BLACK] |= (1ULL << 61);
-            occupiedBB &= ~(1ULL << 63);
-            occupiedBB |= (1ULL << 61);
-            hash ^= ZP[BLACK][ROOK][63];
-            hash ^= ZP[BLACK][ROOK][61];
-        }
-        else if (to == 58) { // black queen side
-            pieceBB[BLACK][ROOK] &= ~(1ULL << 56);
-            pieceBB[BLACK][ROOK] |= (1ULL << 59);
-            colorBB[BLACK] &= ~(1ULL << 56);
-            colorBB[BLACK] |= (1ULL << 59);
-            occupiedBB &= ~(1ULL << 56);
-            occupiedBB |= (1ULL << 59);
-            hash ^= ZP[BLACK][ROOK][56];
-            hash ^= ZP[BLACK][ROOK][59];
-        }
+        int rookFrom, rookTo;
+
+        if (to == 6) { rookFrom = 7;  rookTo = 5; }
+        else if (to == 2) { rookFrom = 0;  rookTo = 3; }
+        else if (to == 62) { rookFrom = 63; rookTo = 61; }
+        else { rookFrom = 56; rookTo = 59; }
+
+        Bitboard rookFromBB = 1ULL << rookFrom;
+        Bitboard rookToBB = 1ULL << rookTo;
+
+        pieceBB[us][ROOK] &= ~rookFromBB;
+        pieceBB[us][ROOK] |= rookToBB;
+
+        colorBB[us] &= ~rookFromBB;
+        colorBB[us] |= rookToBB;
+
+        occupiedBB &= ~rookFromBB;
+        occupiedBB |= rookToBB;
+
+        hash ^= ZP[us][ROOK][rookFrom];
+        hash ^= ZP[us][ROOK][rookTo];
     }
 
-    // EP hash out
+    // En passant square
     if (epSquare != -1)
         hash ^= Z_EP[epSquare & 7];
 
-    // EP square
-    if (flag == FLAG_DBL_PUSH)
-        epSquare = (us == WHITE ? to - 8 : to + 8);
-    else
-        epSquare = -1;
+    epSquare = (flag == FLAG_DBL_PUSH)
+        ? (us == WHITE ? to - 8 : to + 8)
+        : -1;
 
     if (epSquare != -1)
         hash ^= Z_EP[epSquare & 7];
@@ -308,11 +292,11 @@ inline bool Board::make_move(Move m, State& st) {
     hash ^= Z_CASTLE[st.castling];
     hash ^= Z_CASTLE[castling];
 
-    // Side to move
+    // Change side to move
     stm = them;
     hash ^= Z_STM;
 
-    // repetition push
+    // Repetition history
     repHistory[repLen++] = hash;
 
     return true;
@@ -322,17 +306,74 @@ inline void Board::unmake_move(const State& st) {
     if (repLen > 0)
         repLen--;
 
+    Move m = st.move;
+
+    int from = from_sq(m);
+    int to = to_sq(m);
+    int promo = promo_of(m);
+    int flag = flags_of(m);
+
+    Color us = st.stm;
+    Color them = Color(us ^ 1);
+
+    Piece pc = piece_at(to);
+
+    Bitboard fromBB = 1ULL << from;
+    Bitboard toBB = 1ULL << to;
+
+    // Remove the moved piece from destination
+    pieceBB[us][pc] &= ~toBB;
+    colorBB[us] &= ~toBB;
+    occupiedBB &= ~toBB;
+
+    // Restore original piece at source
+    Piece originalPc = (promo != PROMO_NONE) ? PAWN : pc;
+
+    pieceBB[us][originalPc] |= fromBB;
+    colorBB[us] |= fromBB;
+    occupiedBB |= fromBB;
+
+    // Undo castling rook movement
+    if (flag == FLAG_CASTLING) {
+        int rookFrom, rookTo;
+
+        if (to == 6) { rookFrom = 7;  rookTo = 5; }
+        else if (to == 2) { rookFrom = 0;  rookTo = 3; }
+        else if (to == 62) { rookFrom = 63; rookTo = 61; }
+        else { rookFrom = 56; rookTo = 59; }
+
+        Bitboard rookFromBB = 1ULL << rookFrom;
+        Bitboard rookToBB = 1ULL << rookTo;
+
+        pieceBB[us][ROOK] &= ~rookToBB;
+        pieceBB[us][ROOK] |= rookFromBB;
+
+        colorBB[us] &= ~rookToBB;
+        colorBB[us] |= rookFromBB;
+
+        occupiedBB &= ~rookToBB;
+        occupiedBB |= rookFromBB;
+    }
+
+    // Restore captured piece
+    if (st.capturedPiece != NO_PIECE) {
+        Bitboard capBB = 1ULL << st.capturedSquare;
+
+        pieceBB[them][st.capturedPiece] |= capBB;
+        colorBB[them] |= capBB;
+        occupiedBB |= capBB;
+    }
+
+    // Restore metadata
     castling = st.castling;
     epSquare = st.epSquare;
     halfmoveClock = st.halfmoveClock;
+
     kingSq[WHITE] = st.kingSq[WHITE];
     kingSq[BLACK] = st.kingSq[BLACK];
-    std::memcpy(pieceBB, st.pieceBB, sizeof(pieceBB));
-    std::memcpy(colorBB, st.colorBB, sizeof(colorBB));
-    occupiedBB = st.occupiedBB;
+
     hash = st.hash;
     stm = st.stm;
-
 }
 
 // square_attacked using magic sliding attacks
