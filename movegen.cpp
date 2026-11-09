@@ -315,14 +315,14 @@ void generate_legal(Board& pos, MoveList& list) {
         Bitboard fromBB = 1ULL << from;
         Bitboard toBB = 1ULL << to;
 
-        Piece pc = pos.piece_at(from);
+        bool kingMove = (pos.pieceBB[us][KING] & fromBB) != 0;
 
         // Double check: only king moves
-        if (doubleCheck && pc != KING)
+        if (doubleCheck && !kingMove)
             continue;
 
         // King moves
-        if (pc == KING) {
+        if (kingMove) {
             if (flags == FLAG_CASTLING) {
                 int mid = (to + ksq) / 2;
 
