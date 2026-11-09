@@ -242,13 +242,14 @@ static void compute_pins_and_checkmask(
                 firstFriend = sq;
             }
             else if (themBB & bb) {
-                Piece p = pos.piece_at(sq);
                 bool diagDir = (d >= 4);
                 bool orthoDir = (d < 4);
 
                 bool slider =
-                    (diagDir && (p == BISHOP || p == QUEEN)) ||
-                    (orthoDir && (p == ROOK || p == QUEEN));
+                    (diagDir && (pos.pieceBB[them][BISHOP] & bb ||
+                        pos.pieceBB[them][QUEEN] & bb)) ||
+                    (orthoDir && (pos.pieceBB[them][ROOK] & bb ||
+                        pos.pieceBB[them][QUEEN] & bb));
 
                 if (!slider) break;
 
