@@ -20,17 +20,14 @@ Board::Board() {
 Piece Board::piece_at(int sq) const {
     Bitboard b = 1ULL << sq;
 
-    if (colorBB[WHITE] & b) {
-        for (int p = 0; p < 6; p++)
-            if (pieceBB[WHITE][p] & b)
-                return Piece(p);
-    }
+    if (!(occupiedBB & b))
+        return NO_PIECE;
 
-    if (colorBB[BLACK] & b) {
-        for (int p = 0; p < 6; p++)
-            if (pieceBB[BLACK][p] & b)
-                return Piece(p);
-    }
+    Color c = (colorBB[WHITE] & b) ? WHITE : BLACK;
+
+    for (int p = 0; p < 6; ++p)
+        if (pieceBB[c][p] & b)
+            return Piece(p);
 
     return NO_PIECE;
 }
