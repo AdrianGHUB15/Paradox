@@ -7,10 +7,7 @@ struct MoveList {
     int  scores[256];
     int  size;
 
-    MoveList() : size(0) {
-        std::memset(moves, 0, sizeof(moves));
-        std::memset(scores, 0, sizeof(scores));
-    }
+    MoveList() : size(0) {}
 };
 
 // Pseudo-legal moves (no king safety)
