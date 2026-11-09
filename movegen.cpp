@@ -288,10 +288,10 @@ static void compute_pins_and_checkmask(
 
 // Legal move generation
 void generate_legal(Board& pos, MoveList& list) {
-    MoveList pseudo;
-    generate_pseudo(pos, pseudo);
+    generate_pseudo(pos, list);
 
-    list.size = 0;
+    const int pseudoSize = list.size;
+    int write = 0;
 
     Color us = pos.stm;
     Color them = Color(us ^ 1);
@@ -305,8 +305,8 @@ void generate_legal(Board& pos, MoveList& list) {
 
     int ksq = pos.kingSq[us];
 
-    for (int i = 0; i < pseudo.size; ++i) {
-        Move m = pseudo.moves[i];
+    for (int i = 0; i < pseudoSize; ++i) {
+        Move m = list.moves[i];
 
         int from = from_sq(m);
         int to = to_sq(m);
@@ -317,11 +317,9 @@ void generate_legal(Board& pos, MoveList& list) {
 
         Piece pc = pos.piece_at(from);
 
-        // Double check: only king moves
         if (doubleCheck && pc != KING)
             continue;
 
-        // King moves
         if (pc == KING) {
             if (flags == FLAG_CASTLING) {
                 int mid = (to + ksq) / 2;
@@ -349,22 +347,10 @@ void generate_legal(Board& pos, MoveList& list) {
                     continue;
             }
 
-            list.moves[list.size++] = m;
+            list.moves[write++] = m;
             continue;
         }
 
-        // ----------------------------------------
-        // EN PASSANT
-        //
-        // Do this BEFORE checkmask/pin tests.
-        // EP changes three squares:
-        //
-        //   from  -> to
-        //   captured pawn disappears
-        //
-        // Therefore ordinary pin/checkmask geometry
-        // is not sufficient.
-        // ----------------------------------------
         if (flags == FLAG_ENPASSANT) {
             State st;
 
@@ -378,21 +364,20 @@ void generate_legal(Board& pos, MoveList& list) {
             if (illegal)
                 continue;
 
-            list.moves[list.size++] = m;
+            list.moves[write++] = m;
             continue;
         }
 
-        // If in check, non-king moves must resolve the check.
         if (inCheck && !(toBB & checkmask))
             continue;
 
-        // Pinned piece
         if (pinned & fromBB) {
             if (!(toBB & pinRay[from]))
                 continue;
         }
 
-        // Normal move
-        list.moves[list.size++] = m;
+        list.moves[write++] = m;
     }
+
+    list.size = write;
 }
