@@ -106,11 +106,13 @@ static constexpr int PieceValue[6] = {
     20000  // king
 };
 
-void update_history(Move m, int depth) {
+void update_history(Move m, int bonus) {
     int from = from_sq(m);
     int to = to_sq(m);
 
-    history[from][to] += depth * depth;
+    int& h = history[from][to];
+
+    h += bonus - h * std::abs(bonus) / 16384;
 }
 
 void update_capture_history(Board& pos, Move m, int depth) {
@@ -383,7 +385,9 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         });
 
     Move childPV[128];
+    Move quietMoves[256];
 
+    int quietMoveCount = 0;
     int childPV_len = 0;
     int moveCount = 0;
 
@@ -417,6 +421,9 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
 
         bool isCheck = in_check(pos, pos.stm);
         bool quiet = !capture && !promotion && !isCheck;
+
+        if (quiet)
+            quietMoves[quietMoveCount++] = m;
 
         ++moveCount;
 
@@ -488,20 +495,25 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
             }
         }
 
-        if (score > alpha) {
+        if (score > alpha)
             alpha = score;
 
-            if (quiet)
-                update_history(m, depth);
-        }
-
         if (alpha >= beta) {
+            int bonus = std::min(2048, depth * depth * 16);
+
             if (capture) {
                 update_capture_history(pos, m, depth);
             }
             else {
+                update_history(m, bonus);
+
                 killers[ply][1] = killers[ply][0];
                 killers[ply][0] = m;
+            }
+
+            for (int j = 0; j < quietMoveCount; j++) {
+                if (quietMoves[j] != m)
+                    update_history(quietMoves[j], -bonus);
             }
 
             break;
