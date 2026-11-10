@@ -297,7 +297,7 @@ void generate_legal(Board& pos, MoveList& list) {
     Color them = Color(us ^ 1);
 
     Bitboard pinned = 0;
-    Bitboard pinRay[64] = {};
+    Bitboard pinRay[64];
     Bitboard checkmask;
     bool inCheck, doubleCheck;
 
