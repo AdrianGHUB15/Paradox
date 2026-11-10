@@ -434,6 +434,10 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
             if (PvNode)
                 reduction--;
 
+            // Reduce less for moves with good history.
+            int historyValue = history[from_sq(m)][to_sq(m)];
+            reduction -= std::clamp(historyValue / 4096, -2, 2);
+
             reduction = std::max(reduction, 0);
         }
 
