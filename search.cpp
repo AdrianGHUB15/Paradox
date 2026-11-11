@@ -47,6 +47,7 @@ int finalSeldepth = 0;
 
 int rootDepth = 0;
 int TIME_LIMIT_MS = 0;
+int SOFT_TIME_LIMIT_MS = 0;
 
 bool stopRequested = false;
 bool infiniteSearch = false;
@@ -178,11 +179,7 @@ bool time_up() {
     if (TIME_LIMIT_MS <= 0)
         return false;
 
-    auto now = std::chrono::steady_clock::now();
-
-    int ms = (int)std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
-
-    return ms >= TIME_LIMIT_MS;
+    return elapsed_ms() >= uint64_t(TIME_LIMIT_MS);
 }
 
 void print_info(int depth, int seldepth, int score, uint64_t ms,
@@ -588,29 +585,38 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
     int time = (pos.stm == WHITE ? limits.wtime : limits.btime);
     int inc = (pos.stm == WHITE ? limits.winc : limits.binc);
 
-    // TIME LIMIT SETUP
+    TIME_LIMIT_MS = 0;
+    SOFT_TIME_LIMIT_MS = 0;
+
     if (limits.infinite) {
-        TIME_LIMIT_MS = 0; // only stop ends search
+        // No time limit.
     }
     else if (limits.movetime > 0) {
-        TIME_LIMIT_MS = limits.movetime;
+        int reserve = std::min(20, limits.movetime / 20);
+
+        TIME_LIMIT_MS = std::max(1, limits.movetime - reserve);
+        SOFT_TIME_LIMIT_MS = TIME_LIMIT_MS * 9 / 10;
     }
-    else if (limits.wtime > 0 || limits.btime > 0) {
+    else if (time > 0) {
+        int reserve = std::min(time - 1, std::max(20, time / 50));
+        int usableTime = time - reserve;
 
-        if (limits.movestogoProvided) {
-            TIME_LIMIT_MS = time / limits.movestogo + inc / 2;
-        }
-        else {
-            TIME_LIMIT_MS = time / 20 + inc / 2;
-        }
-        if (TIME_LIMIT_MS > time)
-            TIME_LIMIT_MS = time - 50;
+        int movesToGo = limits.movestogoProvided
+            ? std::max(1, limits.movestogo)
+            : 25;
 
-        if (TIME_LIMIT_MS < 10)
-            TIME_LIMIT_MS = 10;
+        int optimumTime = time / movesToGo + inc * 3 / 4;
+        optimumTime = std::clamp(optimumTime, 1, usableTime);
+
+        int maximumTime = std::min(
+            usableTime,
+            std::max(optimumTime * 3, optimumTime + 50)
+        );
+
+        SOFT_TIME_LIMIT_MS = optimumTime;
+        TIME_LIMIT_MS = maximumTime;
     }
     else {
-        TIME_LIMIT_MS = 0; // no limit → infinite unless stopRequested
         infiniteSearch = true;
     }
 
@@ -638,6 +644,9 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
 
     if (rootMoves.size() == 1 && !limits.movetime) {
         TIME_LIMIT_MS = std::min(TIME_LIMIT_MS, 500);
+
+        if (SOFT_TIME_LIMIT_MS > 0)
+            SOFT_TIME_LIMIT_MS = std::min(SOFT_TIME_LIMIT_MS, TIME_LIMIT_MS);
     }
 
     Move bestMove = 0;
@@ -655,6 +664,10 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
     int deepenDepth = limits.depth > 0 ? std::min(limits.depth, MAX_PLY) : MAX_PLY;
 
     for (int depth = 1; depth <= deepenDepth; depth++) {
+        // Soft time limit: don't start another iteration.
+        if (depth > 1 && SOFT_TIME_LIMIT_MS > 0 && elapsed_ms() >= uint64_t(SOFT_TIME_LIMIT_MS))
+            break;
+
         pvIdx = 0;
         pvLast = std::min(multiPV, static_cast<int>(rootMoves.size())) - 1;
 
@@ -666,55 +679,6 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
         interrupted = false;
         seldepth = 0;
         rootDepth = depth;
-
-        // --- TIME MANAGEMENT: stop if we can't afford depth+1 ---
-        if (timeManaged && !limits.movetime && depth >= 2 && finalPV_len > 0) {
-            auto now = std::chrono::steady_clock::now();
-            int elapsed = (int)std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
-
-            if (elapsed <= 0) elapsed = 1;
-
-            uint64_t nodesEffort = rootMoves[0].effort * 100000ULL
-                / std::max(uint64_t(1), nodes);
-
-            double effortFactor = 0.969
-                + (0.714 - 0.969)
-                * (double(nodesEffort) - 75800.0)
-                / (104510.0 - 75800.0);
-
-            effortFactor = std::clamp(effortFactor, 0.693, 0.838);
-
-            int effectiveTimeLimit = int(TIME_LIMIT_MS * effortFactor);
-            int time_left = effectiveTimeLimit - elapsed;
-
-            if (time_left <= 0) {
-                std::cout << "info string no time left, stopping at depth "
-                    << (depth - 1) << "\n";
-                return finalPV[0];
-            }
-
-            // Estimate cost of next iteration from previous depth
-            uint64_t nodesThisDepth = nodes - lastDepthNodes;
-
-            if (nodesThisDepth == 0) nodesThisDepth = 1;
-
-            uint64_t nps = nodes * 1000ULL / elapsed;
-
-            if (nps == 0) nps = 1;
-
-            // Simple model: next depth ≈ 2x current depth cost
-            uint64_t estimatedNextNodes = nodesThisDepth * 2;
-            int estimatedNextMs = (int)(estimatedNextNodes * 1000ULL / nps);
-
-            if (time_left < estimatedNextMs) {
-                std::cout << "info string not enough time for depth "
-                    << (depth + 1) << ", stopping at depth "
-                    << depth << "\n";
-                return finalPV[0];
-            }
-
-            lastDepthNodes = nodes;
-        }
 
         for (pvIdx = 0; pvIdx <= pvLast; ++pvIdx) {
 
@@ -790,6 +754,39 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
                 print_info(rootDepth, rootMoves[i].seldepth, rootMoves[i].score,
                     ms, nodes, nps, tt_hashfull(),
                     rootMoves[i].pv, rootMoves[i].pv_len, nullptr, i + 1);
+            }
+
+            // --- TIME MANAGEMENT: stop if we can't afford depth+1 ---
+            if (timeManaged && !limits.movetime && SOFT_TIME_LIMIT_MS > 0 && depth >= 1 && finalPV_len > 0) {
+                int elapsed = std::max(1, int(elapsed_ms()));
+                uint64_t nodesEffort = rootMoves[0].effort * 100000ULL / std::max(uint64_t(1), nodes);
+
+                double effortFactor = 0.969 + (0.714 - 0.969) 
+                    * (double(nodesEffort) - 75800.0)
+                    / (104510.0 - 75800.0);
+
+                effortFactor = std::clamp(effortFactor, 0.693, 0.838);
+
+                int effectiveTimeLimit = int(SOFT_TIME_LIMIT_MS * effortFactor);
+                int time_left = effectiveTimeLimit - elapsed;
+
+                if (time_left <= 0) {
+                    std::cout << "info string no time left, stopping at depth "
+                        << (depth) << "\n";
+                    break;
+                }
+
+                // Estimate next iteration at roughly 2x the previous iteration's cost.
+                uint64_t estimatedNextMs = 2 * (nodes - lastDepthNodes) * 1000ULL / std::max(uint64_t(1), update_nps());
+
+                if (uint64_t(time_left) < estimatedNextMs) {
+                    std::cout << "info string not enough time for depth "
+                        << (depth + 1) << ", stopping at depth "
+                        << depth << "\n";
+                    break;
+                }
+
+                lastDepthNodes = nodes;
             }
 
             continue;
