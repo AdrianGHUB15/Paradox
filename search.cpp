@@ -248,6 +248,18 @@ int qsearch(Board& pos, int alpha, int beta, int ply) {
         return 0;
     }
 
+    if (pos.halfmoveClock >= 100) {
+        if (in_check(pos, pos.stm)) {
+            MoveList legal;
+            generate_legal(pos, legal);
+
+            if (legal.size == 0)
+                return -MATE + ply;
+        }
+
+        return 0;
+    }
+
     int standPat = evaluate(pos);
 
     if (standPat >= beta)
@@ -306,6 +318,18 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
 
     if (time_up()) {
         interrupted = true;
+        return 0;
+    }
+
+    if (pos.halfmoveClock >= 100) {
+        if (in_check(pos, pos.stm)) {
+            MoveList legal;
+            generate_legal(pos, legal);
+
+            if (legal.size == 0)
+                return -MATE + ply;
+        }
+
         return 0;
     }
 

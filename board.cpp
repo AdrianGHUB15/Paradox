@@ -1,5 +1,7 @@
 #include "board.h"
 
+#include <cstdlib>
+
 Board::Board() {
     std::memset(pieceBB, 0, sizeof(pieceBB));
     std::memset(colorBB, 0, sizeof(colorBB));
@@ -125,8 +127,24 @@ void Board::set_fen(const char* fen) {
         p++;
     }
 
+    // Halfmove clock
     halfmoveClock = 0;
     fullmoveNumber = 1;
+
+    while (*p == ' ')
+        p++;
+
+    if (*p) {
+        char* end;
+        halfmoveClock = int(std::strtol(p, &end, 10));
+        p = end;
+
+        while (*p == ' ')
+            p++;
+
+        if (*p)
+            fullmoveNumber = int(std::strtol(p, nullptr, 10));
+    }
 
     hash = compute_hash(*this);
 
