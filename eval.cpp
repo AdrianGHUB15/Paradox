@@ -301,6 +301,21 @@ int evaluate(const Board& pos) {
             eg += sign * evalParams.bishopPairEG;
         }
 
+
+        // Endgame king centralization
+        {
+            int kingSq = pos.kingSq[col];
+            int file = kingSq & 7;
+            int rank = kingSq >> 3;
+
+            int fileDistance = std::min(file, 7 - file);
+            int rankDistance = std::min(rank, 7 - rank);
+
+            int centerScore = 6 - fileDistance - rankDistance;
+
+            eg += sign * centerScore * 4;
+        }
+
         // Rook on 7th rank
         {
             Bitboard rooks = pos.pieceBB[col][ROOK];
