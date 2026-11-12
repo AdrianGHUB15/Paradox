@@ -366,14 +366,14 @@ int evaluate(const Board& pos) {
                 if (file < 7)
                     adjacentFiles |= file_mask[file + 1];
 
-                Bitboard isolated = pawns & file_mask[file] & ~adjacentFiles;
+                if ((pawns & adjacentFiles) == 0) {
+                    int count = popcount(pawns & file_mask[file]);
 
-                int count = popcount(isolated);
-
-                if (count) {
-                    int penalty = count * 10;
-                    mg -= sign * penalty;
-                    eg -= sign * penalty;
+                    if (count) {
+                        int penalty = count * 10;
+                        mg -= sign * penalty;
+                        eg -= sign * penalty;
+                    }
                 }
             }
         }
