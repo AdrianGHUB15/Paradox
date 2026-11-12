@@ -110,7 +110,7 @@ static constexpr int PieceValue[6] = {
     20000  // king
 };
 
-void update_history(Move m, int bonud) {
+void update_history(Move m, int bonus) {
     int from = from_sq(m);
     int to = to_sq(m);
 
