@@ -301,6 +301,27 @@ int evaluate(const Board& pos) {
             eg += sign * evalParams.bishopPairEG;
         }
 
+        // Connected rooks
+        {
+            Bitboard rooks = pos.pieceBB[col][ROOK];
+            Bitboard remaining = rooks;
+            int pairs = 0;
+
+            while (remaining) {
+                int sq = pop_lsb(remaining);
+
+                Bitboard otherRooks = remaining;
+
+                if (rook_attack(sq, occ) & otherRooks)
+                    pairs++;
+            }
+
+            if (pairs) {
+                mg += sign * pairs * 12;
+                eg += sign * pairs * 8;
+            }
+        }
+
         // Rook on 7th rank
         {
             Bitboard rooks = pos.pieceBB[col][ROOK];
