@@ -392,6 +392,33 @@ int evaluate(const Board& pos) {
                 if (!(enemyPawns & mask)) {
                     mg += sign * evalParams.passedPawnMG[rank];
                     eg += sign * evalParams.passedPawnEG[rank];
+
+                    int file = sq & 7;
+                    int pawnRank = sq / 8;
+                    int supportRank = pawnRank + (col == WHITE ? -1 : 1);
+
+                    if (supportRank >= 0 && supportRank < 8) {
+                        bool supported = false;
+
+                        for (int df : {-1, 1}) {
+                            int supportFile = file + df;
+
+                            if (supportFile < 0 || supportFile > 7)
+                                continue;
+
+                            int supportSq = supportRank * 8 + supportFile;
+
+                            if (pawns & (1ULL << supportSq)) {
+                                supported = true;
+                                break;
+                            }
+                        }
+
+                        if (supported) {
+                            mg += sign * 8;
+                            eg += sign * 15;
+                        }
+                    }
                 }
             }
         }
