@@ -323,6 +323,21 @@ int evaluate(const Board& pos) {
             }
         }
 
+        // Doubled pawns
+        {
+            Bitboard pawns = pos.pieceBB[col][PAWN];
+
+            for (int file = 0; file < 8; ++file) {
+                int count = popcount(pawns & file_mask[file]);
+
+                if (count > 1) {
+                    int penalty = (count - 1) * 12;
+                    mg -= sign * penalty;
+                    eg -= sign * penalty;
+                }
+            }
+        }
+
         // Passed pawns
         {
             Bitboard pawns = pos.pieceBB[col][PAWN];
