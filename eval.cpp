@@ -378,6 +378,22 @@ int evaluate(const Board& pos) {
             }
         }
 
+        // Pawn phalanx
+        {
+            Bitboard pawns = pos.pieceBB[col][PAWN];
+
+            while (pawns) {
+                int sq = pop_lsb(pawns);
+                int file = sq & 7;
+
+                // Check the square immediately to the right
+                if (file < 7 && (pos.pieceBB[col][PAWN] & (1ULL << (sq + 1)))) {
+                    mg += sign * 5;
+                    eg += sign * 8;
+                }
+            }
+        }
+
         // Passed pawns
         {
             Bitboard pawns = pos.pieceBB[col][PAWN];
