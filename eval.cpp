@@ -396,6 +396,34 @@ int evaluate(const Board& pos) {
             }
         }
 
+        // King proximity to passed pawns
+        {
+            int kingSq = pos.kingSq[col];
+            int kingFile = kingSq & 7;
+            int kingRank = kingSq >> 3;
+
+            // Friendly passed pawns: reward king support
+            Bitboard ownPawns = pos.pieceBB[col][PAWN];
+            Bitboard enemyPawns = pos.pieceBB[!col][PAWN];
+
+            while (ownPawns) {
+                int pawnSq = pop_lsb(ownPawns);
+
+                if (enemyPawns & passed_mask[col][pawnSq])
+                    continue;
+
+                int pawnFile = pawnSq & 7;
+                int pawnRank = pawnSq >> 3;
+
+                int distance =
+                    std::max(std::abs(kingFile - pawnFile),
+                        std::abs(kingRank - pawnRank));
+
+                eg += sign * std::max(0, 7 - distance) * 2;
+            }
+        }
+
+
         // King safety: pawn shield
         {
             int kingSq = pos.kingSq[col];
