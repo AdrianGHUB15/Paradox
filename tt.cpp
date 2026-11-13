@@ -91,7 +91,7 @@ bool tt_probe(uint64_t key, int depth, int ply, int alpha, int beta, int& score,
 
     // Convert the stored score to the current ply before
     // comparing it against alpha and beta.
-    int ttScore = score_from_tt(entry.score, ply);
+    int ttScore = score_from_tt(static_cast<int16_t>(entry.score), ply);
 
     switch (entry.flag) {
     case TT_EXACT:
@@ -128,7 +128,7 @@ void tt_store(uint64_t key, int depth, int ply, int score, TTFlag flag, Move bes
 
     entry.key = key;
     entry.depth = depth;
-    entry.score = score_to_tt(score, ply);
+    entry.score = static_cast<uint16_t>(static_cast<int16_t>(score_to_tt(score, ply)));
     entry.bestMove = bestMove;
     entry.flag = flag;
 }

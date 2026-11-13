@@ -12,11 +12,13 @@ enum TTFlag : uint8_t {
 
 struct TTEntry {
     uint64_t key;
-    int score;
-    int depth;
+    uint16_t score;
+    uint8_t depth;
     Move bestMove;
     TTFlag flag;
 };
+
+static_assert(sizeof(TTEntry) == 16, "TTEntry should be 16 bytes");
 
 void tt_init(std::size_t megabytes);
 void tt_clear();
