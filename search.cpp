@@ -357,7 +357,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     int ttScore = 0;
 
     if (tt_probe(pos.hash, depth, ply, alpha, beta, ttScore, ttMove)) {
-        if (ply != 0 && (!PvNode || multiPV == 1))
+        if (ply != 0 && !PvNode)
             return ttScore;
     }
 
