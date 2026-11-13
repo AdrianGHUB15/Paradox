@@ -1,15 +1,5 @@
 #include "eval.h"
 
-//  Helper: own pieces mask
-inline Bitboard own_pieces(const Board& pos, Color c) {
-    return pos.pieceBB[c][PAWN] |
-        pos.pieceBB[c][KNIGHT] |
-        pos.pieceBB[c][BISHOP] |
-        pos.pieceBB[c][ROOK] |
-        pos.pieceBB[c][QUEEN] |
-        pos.pieceBB[c][KING];
-}
-
 EvalParams evalParams = {
     // pieceMG
     {100, 320, 330, 500, 900, 0},
@@ -183,26 +173,11 @@ EvalParams evalParams = {
 
 static inline int mirror_sq(int sq) { return sq ^ 56; }
 
-static int game_phase(const Board& pos) {
-    int phase = 0;
-
-    phase += popcount(pos.pieceBB[WHITE][KNIGHT]);
-    phase += popcount(pos.pieceBB[WHITE][BISHOP]);
-    phase += 2 * popcount(pos.pieceBB[WHITE][ROOK]);
-    phase += 4 * popcount(pos.pieceBB[WHITE][QUEEN]);
-
-    phase += popcount(pos.pieceBB[BLACK][KNIGHT]);
-    phase += popcount(pos.pieceBB[BLACK][BISHOP]);
-    phase += 2 * popcount(pos.pieceBB[BLACK][ROOK]);
-    phase += 4 * popcount(pos.pieceBB[BLACK][QUEEN]);
-
-    return (phase > 24 ? 24 : phase);
-}
-
 // Evaluation
 int evaluate(const Board& pos) {
     int mg = 0;
     int eg = 0;
+    int phase = 0;
 
     // ---------------- Material + PST ----------------
     for (int c = 0; c < 2; c++) {
@@ -211,6 +186,13 @@ int evaluate(const Board& pos) {
 
         for (int p = PAWN; p <= KING; p++) {
             Bitboard bb = pos.pieceBB[col][p];
+
+            int phaseWeight = (p == KNIGHT || p == BISHOP) ? 1 :
+                              (p == ROOK) ? 2 :
+                              (p == QUEEN) ? 4 : 0;
+
+            phase += phaseWeight * popcount(bb);
+
             while (bb) {
                 int sq = pop_lsb(bb);
                 int m = (col == WHITE ? sq : mirror_sq(sq));
@@ -254,41 +236,54 @@ int evaluate(const Board& pos) {
     for (int c = 0; c < 2; c++) {
         Color col = Color(c);
         int sign = (col == WHITE ? 1 : -1);
-        Bitboard own = own_pieces(pos, col);
+
+        Bitboard own = pos.colorBB[col];
+
+        Bitboard ourPawn = pos.pieceBB[col][PAWN];
+        Bitboard theirPawn = pos.pieceBB[!col][PAWN];
+
+        Bitboard knight = pos.pieceBB[col][KNIGHT];
+        Bitboard bishop = pos.pieceBB[col][BISHOP];
+        Bitboard rook = pos.pieceBB[col][ROOK];
+        Bitboard queen = pos.pieceBB[col][QUEEN];
 
         // Mobility
         {
             // Knights
-            Bitboard n = pos.pieceBB[col][KNIGHT];
-            while (n) {
-                int sq = pop_lsb(n);
+            Bitboard knightBB = knight;
+
+            while (knightBB) {
+                int sq = pop_lsb(knightBB);
                 int moves = popcount(attacks_knight(sq) & ~own);
                 mg += sign * moves * evalParams.knightMobMG;
                 eg += sign * moves * evalParams.knightMobEG;
             }
 
             // Bishops
-            Bitboard b = pos.pieceBB[col][BISHOP];
-            while (b) {
-                int sq = pop_lsb(b);
+            Bitboard bishopBB = bishop;
+
+            while (bishopBB) {
+                int sq = pop_lsb(bishopBB);
                 int moves = popcount(bishop_attack(sq, occ) & ~own);
                 mg += sign * moves * evalParams.bishopMobMG;
                 eg += sign * moves * evalParams.bishopMobEG;
             }
 
             // Rooks
-            Bitboard r = pos.pieceBB[col][ROOK];
-            while (r) {
-                int sq = pop_lsb(r);
+            Bitboard rookBB = rook;
+
+            while (rookBB) {
+                int sq = pop_lsb(rookBB);
                 int moves = popcount(rook_attack(sq, occ) & ~own);
                 mg += sign * moves * evalParams.rookMobMG;
                 eg += sign * moves * evalParams.rookMobEG;
             }
 
             // Queens
-            Bitboard q = pos.pieceBB[col][QUEEN];
-            while (q) {
-                int sq = pop_lsb(q);
+            Bitboard queenBB = queen;
+
+            while (queenBB) {
+                int sq = pop_lsb(queenBB);
                 int moves = popcount(queen_attack(sq, occ) & ~own);
                 mg += sign * moves * evalParams.queenMobMG;
                 eg += sign * moves * evalParams.queenMobEG;
@@ -297,12 +292,10 @@ int evaluate(const Board& pos) {
 
         // Knight outposts
         {
-            Bitboard knights = pos.pieceBB[col][KNIGHT];
-            Bitboard friendlyPawns = pos.pieceBB[col][PAWN];
-            Bitboard enemyPawns = pos.pieceBB[!col][PAWN];
+            Bitboard outpostKnights = knight;
 
-            while (knights) {
-                int sq = pop_lsb(knights);
+            while (outpostKnights) {
+                int sq = pop_lsb(outpostKnights);
                 int file = sq & 7;
                 int rank = sq / 8;
 
@@ -316,25 +309,25 @@ int evaluate(const Board& pos) {
 
                 if (col == WHITE) {
                     if (file > 0 && sq >= 9)
-                        protectedByPawn |= friendlyPawns & (1ULL << (sq - 9));
+                        protectedByPawn |= ourPawn & (1ULL << (sq - 9));
                     if (file < 7 && sq >= 7)
-                        protectedByPawn |= friendlyPawns & (1ULL << (sq - 7));
+                        protectedByPawn |= ourPawn & (1ULL << (sq - 7));
 
                     if (file > 0 && sq <= 55)
-                        attackedByPawn |= enemyPawns & (1ULL << (sq + 7));
+                        attackedByPawn |= theirPawn & (1ULL << (sq + 7));
                     if (file < 7 && sq <= 54)
-                        attackedByPawn |= enemyPawns & (1ULL << (sq + 9));
+                        attackedByPawn |= theirPawn & (1ULL << (sq + 9));
                 }
                 else {
                     if (file > 0 && sq <= 54)
-                        protectedByPawn |= friendlyPawns & (1ULL << (sq + 7));
+                        protectedByPawn |= ourPawn & (1ULL << (sq + 7));
                     if (file < 7 && sq <= 55)
-                        protectedByPawn |= friendlyPawns & (1ULL << (sq + 9));
+                        protectedByPawn |= ourPawn & (1ULL << (sq + 9));
 
                     if (file > 0 && sq >= 9)
-                        attackedByPawn |= enemyPawns & (1ULL << (sq - 9));
+                        attackedByPawn |= theirPawn & (1ULL << (sq - 9));
                     if (file < 7 && sq >= 7)
-                        attackedByPawn |= enemyPawns & (1ULL << (sq - 7));
+                        attackedByPawn |= theirPawn & (1ULL << (sq - 7));
                 }
 
                 if (protectedByPawn && !attackedByPawn) {
@@ -345,18 +338,16 @@ int evaluate(const Board& pos) {
         }
 
         // Bishop pair
-        if (popcount(pos.pieceBB[col][BISHOP]) >= 2) {
+        if (popcount(bishop) >= 2) {
             mg += sign * evalParams.bishopPairMG;
             eg += sign * evalParams.bishopPairEG;
         }
 
         // Rook on 7th rank
         {
-            Bitboard rooks = pos.pieceBB[col][ROOK];
-
             int seventhRank = (col == WHITE) ? 6 : 1;
 
-            int count = popcount(rooks & rank_mask[seventhRank]);
+            int count = popcount(rook & rank_mask[seventhRank]);
 
             if (count) {
                 int bonus = count * 20;
@@ -367,58 +358,48 @@ int evaluate(const Board& pos) {
 
         // Rook on open / semi-open file
         {
-            Bitboard rooks = pos.pieceBB[col][ROOK];
-            Bitboard pawnsUs = pos.pieceBB[col][PAWN];
-            Bitboard pawnsThem = pos.pieceBB[!col][PAWN];
+            Bitboard rookBB = rook;
 
-            while (rooks) {
-                int sq = pop_lsb(rooks);
+            while (rookBB) {
+                int sq = pop_lsb(rookBB);
                 int file = sq & 7;
 
                 Bitboard mask = file_mask[file];
 
-                bool usPawn = (pawnsUs & mask) != 0;
-                bool themPawn = (pawnsThem & mask) != 0;
+                bool usPawn = (ourPawn & mask) != 0;
+                bool themPawn = (theirPawn & mask) != 0;
 
                 if (!usPawn && !themPawn)
                     mg += sign * evalParams.rookOpenFile;
+
                 else if (!usPawn)
                     mg += sign * evalParams.rookSemiOpenFile;
             }
         }
 
-        // Doubled pawns
+        // Doubled and isolated pawns
         {
-            Bitboard pawns = pos.pieceBB[col][PAWN];
-
             for (int file = 0; file < 8; ++file) {
-                int count = popcount(pawns & file_mask[file]);
+                int count = popcount(ourPawn & file_mask[file]);
 
+                // Doubled pawns
                 if (count > 1) {
                     int penalty = (count - 1) * 12;
                     mg -= sign * penalty;
                     eg -= sign * penalty;
                 }
-            }
-        }
 
-        // Isolated pawns
-        {
-            Bitboard pawns = pos.pieceBB[col][PAWN];
+                // Isolated pawns
+                if (count) {
+                    Bitboard adjacentFiles = 0;
 
-            for (int file = 0; file < 8; ++file) {
-                Bitboard adjacentFiles = 0;
+                    if (file > 0)
+                        adjacentFiles |= file_mask[file - 1];
 
-                if (file > 0)
-                    adjacentFiles |= file_mask[file - 1];
+                    if (file < 7)
+                        adjacentFiles |= file_mask[file + 1];
 
-                if (file < 7)
-                    adjacentFiles |= file_mask[file + 1];
-
-                if ((pawns & adjacentFiles) == 0) {
-                    int count = popcount(pawns & file_mask[file]);
-
-                    if (count) {
+                    if (!(ourPawn & adjacentFiles)) {
                         int penalty = count * 10;
                         mg -= sign * penalty;
                         eg -= sign * penalty;
@@ -429,16 +410,15 @@ int evaluate(const Board& pos) {
 
         // Passed pawns
         {
-            Bitboard pawns = pos.pieceBB[col][PAWN];
-            Bitboard enemyPawns = pos.pieceBB[!col][PAWN];
+            Bitboard bb = ourPawn;
 
-            while (pawns) {
-                int sq = pop_lsb(pawns);
+            while (bb) {
+                int sq = pop_lsb(bb);
                 int rank = (col == WHITE ? sq / 8 : 7 - (sq / 8));
 
                 Bitboard mask = passed_mask[col][sq];
 
-                if (!(enemyPawns & mask)) {
+                if (!(theirPawn & mask)) {
                     mg += sign * evalParams.passedPawnMG[rank];
                     eg += sign * evalParams.passedPawnEG[rank];
                 }
@@ -458,7 +438,7 @@ int evaluate(const Board& pos) {
 
                 int sq = (col == WHITE ? 8 + f : 48 + f);
 
-                if (!(pos.pieceBB[col][PAWN] & (1ULL << sq)))
+                if (!(ourPawn & (1ULL << sq)))
                     missing++;
             }
 
@@ -470,7 +450,7 @@ int evaluate(const Board& pos) {
     mg += (pos.stm == WHITE ? evalParams.tempoBonus : -evalParams.tempoBonus);
 
     // ---------------- Tapered eval ----------------
-    int phase = game_phase(pos);
+    phase = std::min(phase, 24);
     int score = (mg * phase + eg * (24 - phase)) / 24;
 
     return (pos.stm == WHITE ? score : -score);

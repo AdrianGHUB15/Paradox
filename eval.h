@@ -1,4 +1,5 @@
 #pragma once
+
 #include "board.h"
 
 struct EvalParams {
@@ -49,9 +50,6 @@ struct EvalParams {
     // --- Tempo ---
     int tempoBonus;
 };
-
-extern EvalParams evalParams;
-
 
 extern EvalParams evalParams;
 
