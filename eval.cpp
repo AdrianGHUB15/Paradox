@@ -295,6 +295,55 @@ int evaluate(const Board& pos) {
             }
         }
 
+        // Knight outposts
+        {
+            Bitboard knights = pos.pieceBB[col][KNIGHT];
+            Bitboard friendlyPawns = pos.pieceBB[col][PAWN];
+            Bitboard enemyPawns = pos.pieceBB[!col][PAWN];
+
+            while (knights) {
+                int sq = pop_lsb(knights);
+                int file = sq & 7;
+                int rank = sq / 8;
+
+                // Only reward knights in enemy territory.
+                if ((col == WHITE && rank < 4) ||
+                    (col == BLACK && rank > 3))
+                    continue;
+
+                bool protectedByPawn = false;
+                bool attackedByPawn = false;
+
+                if (col == WHITE) {
+                    if (file > 0 && sq >= 9)
+                        protectedByPawn |= friendlyPawns & (1ULL << (sq - 9));
+                    if (file < 7 && sq >= 7)
+                        protectedByPawn |= friendlyPawns & (1ULL << (sq - 7));
+
+                    if (file > 0 && sq <= 55)
+                        attackedByPawn |= enemyPawns & (1ULL << (sq + 7));
+                    if (file < 7 && sq <= 54)
+                        attackedByPawn |= enemyPawns & (1ULL << (sq + 9));
+                }
+                else {
+                    if (file > 0 && sq <= 54)
+                        protectedByPawn |= friendlyPawns & (1ULL << (sq + 7));
+                    if (file < 7 && sq <= 55)
+                        protectedByPawn |= friendlyPawns & (1ULL << (sq + 9));
+
+                    if (file > 0 && sq >= 9)
+                        attackedByPawn |= enemyPawns & (1ULL << (sq - 9));
+                    if (file < 7 && sq >= 7)
+                        attackedByPawn |= enemyPawns & (1ULL << (sq - 7));
+                }
+
+                if (protectedByPawn && !attackedByPawn) {
+                    mg += sign * 15;
+                    eg += sign * 10;
+                }
+            }
+        }
+
         // Bishop pair
         if (popcount(pos.pieceBB[col][BISHOP]) >= 2) {
             mg += sign * evalParams.bishopPairMG;
