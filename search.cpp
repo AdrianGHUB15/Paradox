@@ -732,7 +732,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
                 else
                     break;
                 
-                delta *= 2;
+                delta += delta / 3;
             }
 
             if (interrupted)
