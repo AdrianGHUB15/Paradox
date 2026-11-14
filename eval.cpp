@@ -250,40 +250,32 @@ int evaluate(const Board& pos) {
         // Mobility
         {
             // Knights
-            Bitboard knightBB = knight;
-
-            while (knightBB) {
-                int sq = pop_lsb(knightBB);
+            while (knight) {
+                int sq = pop_lsb(knight);
                 int moves = popcount(attacks_knight(sq) & ~own);
                 mg += sign * moves * evalParams.knightMobMG;
                 eg += sign * moves * evalParams.knightMobEG;
             }
 
             // Bishops
-            Bitboard bishopBB = bishop;
-
-            while (bishopBB) {
-                int sq = pop_lsb(bishopBB);
+            while (bishop) {
+                int sq = pop_lsb(bishop);
                 int moves = popcount(bishop_attack(sq, occ) & ~own);
                 mg += sign * moves * evalParams.bishopMobMG;
                 eg += sign * moves * evalParams.bishopMobEG;
             }
 
             // Rooks
-            Bitboard rookBB = rook;
-
-            while (rookBB) {
-                int sq = pop_lsb(rookBB);
+            while (rook) {
+                int sq = pop_lsb(rook);
                 int moves = popcount(rook_attack(sq, occ) & ~own);
                 mg += sign * moves * evalParams.rookMobMG;
                 eg += sign * moves * evalParams.rookMobEG;
             }
 
             // Queens
-            Bitboard queenBB = queen;
-
-            while (queenBB) {
-                int sq = pop_lsb(queenBB);
+            while (queen) {
+                int sq = pop_lsb(queen);
                 int moves = popcount(queen_attack(sq, occ) & ~own);
                 mg += sign * moves * evalParams.queenMobMG;
                 eg += sign * moves * evalParams.queenMobEG;
@@ -292,10 +284,8 @@ int evaluate(const Board& pos) {
 
         // Knight outposts
         {
-            Bitboard outpostKnights = knight;
-
-            while (outpostKnights) {
-                int sq = pop_lsb(outpostKnights);
+            while (knight) {
+                int sq = pop_lsb(knight);
                 int file = sq & 7;
                 int rank = sq / 8;
 
@@ -358,10 +348,8 @@ int evaluate(const Board& pos) {
 
         // Rook on open / semi-open file
         {
-            Bitboard rookBB = rook;
-
-            while (rookBB) {
-                int sq = pop_lsb(rookBB);
+            while (rook) {
+                int sq = pop_lsb(rook);
                 int file = sq & 7;
 
                 Bitboard mask = file_mask[file];
@@ -410,10 +398,8 @@ int evaluate(const Board& pos) {
 
         // Passed pawns
         {
-            Bitboard bb = ourPawn;
-
-            while (bb) {
-                int sq = pop_lsb(bb);
+            while (ourPawn) {
+                int sq = pop_lsb(ourPawn);
                 int rank = (col == WHITE ? sq / 8 : 7 - (sq / 8));
 
                 Bitboard mask = passed_mask[col][sq];
