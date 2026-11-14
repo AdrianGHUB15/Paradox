@@ -368,6 +368,11 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         && !is_decisive(beta) && beta <= eval - 100 * depth)
         return eval;
 
+    // Razoring
+    if (!PvNode && !rootNode && !in_check(pos, pos.stm) && !is_decisive(alpha) && 
+        eval + 250 * depth <= alpha)
+        return qsearch<NonPV>(pos, alpha, beta, ply);
+   
 
     int bestScore = -VALUE_INFINITE;
 
