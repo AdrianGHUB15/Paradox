@@ -62,6 +62,9 @@ struct RootMove {
     int pv_len = 0;
     int seldepth = 0;
     uint64_t effort = 0;
+
+    int averageScore = -VALUE_INFINITE;
+    int meanSquaredScore = -VALUE_INFINITE * VALUE_INFINITE;
 };
 
 enum NodeType {
@@ -694,15 +697,13 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
 
         for (pvIdx = 0; pvIdx <= pvLast; ++pvIdx) {
 
-            int alpha = -VALUE_INFINITE;
-            int beta = VALUE_INFINITE;
-            int score;
-            int window = ASPIRATION_WINDOW;
+            int delta = 10 + std::abs(rootMoves[pvIdx].meanSquaredScore) / 10000;
+            int avg = rootMoves[pvIdx].averageScore;
 
-            if (depth >= 4 && finalPV_len > 0 && pvIdx == 0) {
-                alpha = finalScore - window;
-                beta = finalScore + window;
-            }
+            int alpha = std::max(avg - delta, -VALUE_INFINITE);
+            int beta = std::min(avg + delta, VALUE_INFINITE);
+
+            int score;
 
             while (true) {
                 seldepth = 0;
@@ -718,8 +719,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
                             tt_hashfull(), pv, pv_len, "upperbound", pvIdx + 1);
                     }
 
-                    alpha = std::max(-VALUE_INFINITE, alpha - window);
-                    window *= 2;
+                    alpha = std::max(-VALUE_INFINITE, score - delta);
                 }
                 else if (score >= beta) {
                     if (nodes > nodes_printing) {
@@ -727,12 +727,12 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
                             tt_hashfull(), pv, pv_len, "lowerbound", pvIdx + 1);
                     }
 
-                    beta = std::min(VALUE_INFINITE, beta + window);
-                    window *= 2;
+                    beta = std::min(VALUE_INFINITE, score + delta);
                 }
-                else {
+                else
                     break;
-                }
+                
+                delta *= 2;
             }
 
             if (interrupted)
@@ -754,7 +754,24 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
         uint64_t ms = elapsed_ms();
         uint64_t nps = update_nps();
 
+
         if (!interrupted) {
+            for (auto& rm : rootMoves) {
+                if (rm.averageScore != -VALUE_INFINITE) {
+                    int diff = rm.score - rm.averageScore;
+
+                    rm.meanSquaredScore =
+                        (3 * rm.meanSquaredScore + diff * diff) / 4;
+
+                    rm.averageScore =
+                        (3 * rm.averageScore + rm.score) / 4;
+                }
+                else {
+                    rm.averageScore = rm.score;
+                    rm.meanSquaredScore = 0;
+                }
+            }
+
             finalScore = rootMoves[0].score;
             finalPV_len = rootMoves[0].pv_len;
             finalSeldepth = rootMoves[0].seldepth;
