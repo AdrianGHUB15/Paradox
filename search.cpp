@@ -672,12 +672,18 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
     NODE_LIMIT = limits.nodes;
 
     uint64_t lastDepthNodes = 0;
+    Move previousBestMove = 0;
+    int previousIterationScore = 0;
+    int stableBestMoveCount = 0;
+    bool havePreviousIteration = false;
+
+    int dynamicSoftTimeLimit = SOFT_TIME_LIMIT_MS;
 
     int deepenDepth = limits.depth > 0 ? std::min(limits.depth, MAX_PLY) : MAX_PLY;
 
     for (int depth = 1; depth <= deepenDepth; depth++) {
         // Soft time limit: don't start another iteration.
-        if (depth > 1 && SOFT_TIME_LIMIT_MS > 0 && elapsed_ms() >= uint64_t(SOFT_TIME_LIMIT_MS))
+        if (depth > 1 && dynamicSoftTimeLimit > 0 && elapsed_ms() >= uint64_t(dynamicSoftTimeLimit))
             break;
 
         pvIdx = 0;
@@ -768,32 +774,60 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
                     rootMoves[i].pv, rootMoves[i].pv_len, nullptr, i + 1);
             }
 
-            // --- TIME MANAGEMENT: stop if we can't afford depth+1 ---
-            if (timeManaged && !limits.movetime && SOFT_TIME_LIMIT_MS > 0 && depth >= 1 && finalPV_len > 0) {
+            // --- ADAPTIVE TIME MANAGEMENT ---
+            if (timeManaged && !limits.movetime && SOFT_TIME_LIMIT_MS > 0 && finalPV_len > 0) {
+
                 int elapsed = std::max(1, int(elapsed_ms()));
-                uint64_t nodesEffort = rootMoves[0].effort * 100000ULL / std::max(uint64_t(1), nodes);
 
-                double effortFactor = 0.969 + (0.714 - 0.969) 
-                    * (double(nodesEffort) - 75800.0)
-                    / (104510.0 - 75800.0);
+                Move currentBestMove = rootMoves[0].move;
 
-                effortFactor = std::clamp(effortFactor, 0.693, 0.838);
+                double timeFactor = 1.0;
 
-                int effectiveTimeLimit = int(SOFT_TIME_LIMIT_MS * effortFactor);
-                int time_left = effectiveTimeLimit - elapsed;
+                if (havePreviousIteration) {
 
-                if (time_left <= 0) {
-                    std::cout << "info string no time left, stopping at depth "
-                        << (depth) << "\n";
+                    if (currentBestMove == previousBestMove) {
+                        stableBestMoveCount++;
+
+                        if (stableBestMoveCount >= 3)
+                            timeFactor = 0.75;
+
+                        else if (stableBestMoveCount == 2)
+                            timeFactor = 0.85;
+
+                        else
+                            timeFactor = 0.95;
+                    }
+                    else {
+                        stableBestMoveCount = 0;
+                        timeFactor = 1.15;
+                    }
+
+                    // Allow more time if the evaluation drops significantly.
+                    int scoreDrop = previousIterationScore - finalScore;
+
+                    if (scoreDrop >= 80)
+                        timeFactor += 0.15;
+                }
+
+                previousBestMove = currentBestMove;
+                previousIterationScore = finalScore;
+                havePreviousIteration = true;
+
+                dynamicSoftTimeLimit = std::clamp(int(SOFT_TIME_LIMIT_MS * timeFactor), 1, TIME_LIMIT_MS);
+
+                int timeLeft = dynamicSoftTimeLimit - elapsed;
+
+                if (timeLeft <= 0) {
+                    std::cout << "info string adaptive soft time reached, stopping at depth "
+                        << depth << "\n";
                     break;
                 }
 
-                // Estimate next iteration at roughly 2x the previous iteration's cost.
+                // Estimate the cost of the next iteration.
                 uint64_t estimatedNextMs = 2 * (nodes - lastDepthNodes) * 1000ULL / std::max(uint64_t(1), update_nps());
 
-                if (uint64_t(time_left) < estimatedNextMs) {
-                    std::cout << "info string not enough time for depth "
-                        << (depth + 1) << ", stopping at depth "
+                if (uint64_t(timeLeft) < estimatedNextMs) {
+                    std::cout << "info string insufficient time for next iteration, stopping at depth "
                         << depth << "\n";
                     break;
                 }
