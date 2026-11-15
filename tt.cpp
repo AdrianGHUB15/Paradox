@@ -7,6 +7,18 @@
 static TTEntry* TT = nullptr;
 static size_t TTSize = 0;
 
+inline void tt_set_depth_bound(TTEntry& entry, int depth, TTFlag flag) {
+    entry.depthBound = (depth & 63) | (uint8_t(flag) << 6);
+}
+
+inline int tt_get_depth(const TTEntry& entry) {
+    return entry.depthBound & 63;
+}
+
+inline TTFlag tt_get_flag(const TTEntry& entry) {
+    return TTFlag(entry.depthBound >> 6);
+}
+
 static int score_to_tt(int score, int ply) {
     if (score >= MATE - 1000)
         return score + ply;
@@ -86,14 +98,13 @@ bool tt_probe(uint64_t key, int depth, int ply, int alpha, int beta, int& score,
 
     bestMove = entry.bestMove;
 
-    if (entry.depth < depth)
+    if (tt_get_depth(entry) < depth)
         return false;
 
-    // Convert the stored score to the current ply before
-    // comparing it against alpha and beta.
     int ttScore = score_from_tt(entry.score, ply);
 
-    switch (entry.flag) {
+    switch (tt_get_flag(entry)) {
+
     case TT_EXACT:
         score = ttScore;
         return true;
@@ -116,21 +127,21 @@ bool tt_probe(uint64_t key, int depth, int ply, int alpha, int beta, int& score,
     return false;
 }
 
-void tt_store(uint64_t key, int depth, int ply, int score, TTFlag flag, Move bestMove) {
+void tt_store(uint64_t key, int depth, int ply, int score,
+    TTFlag flag, Move bestMove) {
 
     if (!TT || TTSize == 0)
         return;
 
     TTEntry& entry = TT[tt_index(key)];
 
-    if (entry.key == key && entry.depth > depth)
+    if (entry.key == key && tt_get_depth(entry) > depth)
         return;
 
     entry.key = key;
-    entry.depth = depth;
-    entry.score = score_to_tt(score, ply);
+    tt_set_depth_bound(entry, depth, flag);
+    entry.score = static_cast<int16_t>(score_to_tt(score, ply));
     entry.bestMove = bestMove;
-    entry.flag = flag;
 }
 
 uint16_t tt_hashfull() {
