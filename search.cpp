@@ -306,6 +306,7 @@ template<NodeType nodeType>
 int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int& pv_len, bool cutNode) {
 
     int originalAlpha = alpha;
+    int score;
 
     constexpr bool PvNode = nodeType != NonPV;
     constexpr bool rootNode = nodeType == Root;
@@ -362,11 +363,33 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     }
 
     int eval = evaluate(pos);
+    const bool inCheck = in_check(pos, pos.stm);
 
     // Reverse Futility Pruning (RFP)
-    if (depth <= 6 && !rootNode && !in_check(pos, pos.stm) 
+    if (depth <= 6 && !rootNode && !inCheck
         && !is_decisive(beta) && beta <= eval - 100 * depth)
         return eval;
+
+    // Null Move Pruning (NMP)
+    if (depth >= 3 && !PvNode && !rootNode && !inCheck) {
+        const int reduction = 5 + depth / 3;
+        State nullState;
+        pos.make_null_move(nullState);
+
+        Move nullPV[128];
+        int nullPV_len = 0;
+
+        score = -negamax<NonPV>(pos, depth - 1 - reduction, ply + 1, -beta, -beta + 1, nullPV, nullPV_len, !cutNode);
+
+        pos.unmake_null_move(nullState);
+
+        if (interrupted)
+            return 0;
+
+        if (score >= beta) {
+            return beta;
+        }
+    }
 
     // Razoring
     if (!PvNode && !rootNode && !in_check(pos, pos.stm) && !is_decisive(alpha) && 
@@ -458,7 +481,6 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
 
         ++moveCount;
 
-        int score;
         int reduction = 0;
         int extension = 0;
 
