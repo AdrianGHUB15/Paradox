@@ -283,6 +283,14 @@ int qsearch(Board& pos, int alpha, int beta, int ply) {
         if (see(pos, m) < -50)
             continue;
 
+        if (!in_check(pos, pos.stm) && !is_promo(m) && !is_decisive(alpha)) {
+
+            Piece victim = is_ep(m) ? PAWN : pos.piece_at(to_sq(m));
+
+            if (victim != NO_PIECE && standPat + PieceValue[victim] + 200 <= alpha)
+                continue;
+        }
+
         State st;
         pos.make_move(m, st);
 
