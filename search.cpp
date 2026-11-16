@@ -371,7 +371,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     // Reverse Futility Pruning (RFP)
     if (depth <= 6 && !rootNode && !in_check(pos, pos.stm) 
         && !is_decisive(beta) && beta <= staticEval - 100 * depth)
-        return eval;
+        return staticEval;
 
     // Razoring
     if (!PvNode && !rootNode && !in_check(pos, pos.stm) && !is_decisive(alpha) && 
