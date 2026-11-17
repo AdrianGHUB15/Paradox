@@ -377,7 +377,8 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
 
         Move nullPV[128];
         int nullPV_len = 0;
-        score = -negamax<NonPV>(pos, depth - 1 - reduction, ply + 1, -beta, -beta + 1, nullPV, nullPV_len, !cutNode);
+
+        int NullValue = -negamax<NonPV>(pos, depth - 1 - reduction, ply + 1, -beta, -beta + 1, nullPV, nullPV_len, !cutNode);
 
         pos.unmake_null_move(nullState);
 
@@ -385,7 +386,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
             return 0;
 
         if (score >= beta) {
-            return score;
+            return NullValue;
         }
     }
 
