@@ -385,7 +385,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         if (interrupted)
             return 0;
 
-        if (score >= beta) {
+        if (NullValue >= beta) {
             return NullValue;
         }
     }
