@@ -273,7 +273,14 @@ int qsearch(Board& pos, int alpha, int beta, int ply) {
     MoveList list;
     generate_legal(pos, list);
 
+    std::stable_sort(list.moves, list.moves + list.size,
+        [&](Move a, Move b) {
+            return move_score(pos, a, ply)
+                 > move_score(pos, b, ply);
+        });
+
     for (int i = 0; i < list.size; i++) {
+        
 
         Move m = list.moves[i];
 
