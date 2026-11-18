@@ -127,8 +127,8 @@ void tt_store(uint64_t key, int depth, int ply, int score, TTFlag flag, Move bes
         return;
 
     entry.key = key;
-    entry.depth = depth;
-    entry.score = score_to_tt(score, ply);
+    entry.depth = static_cast<uint8_t>(depth);
+    entry.score = static_cast<int16_t>(score_to_tt(score, ply));
     entry.bestMove = bestMove;
     entry.flag = flag;
 }
