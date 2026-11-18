@@ -37,6 +37,30 @@ Piece Board::piece_at(int sq) const {
     return NO_PIECE;
 }
 
+void Board::make_null_move(State& st) {
+    ++nodes;
+
+    st.epSquare = epSquare;
+    st.halfmoveClock = halfmoveClock;
+    st.hash = hash;
+    st.stm = stm;
+
+    if (epSquare != -1)
+        hash ^= Z_EP[epSquare & 7];
+
+    epSquare = -1;
+    ++halfmoveClock;
+    stm = Color(stm ^ 1);
+    hash ^= Z_STM;
+}
+
+void Board::unmake_null_move(const State& st) {
+    epSquare = st.epSquare;
+    halfmoveClock = st.halfmoveClock;
+    hash = st.hash;
+    stm = st.stm;
+}
+
 Color Board::color_at(int sq) const {
     Bitboard b = 1ULL << sq;
 
