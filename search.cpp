@@ -370,7 +370,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
 
     // Null Move Pruning (NMP)
     if (depth >= 3 && !PvNode && !rootNode && !in_check(pos, pos.stm) && eval >= beta + 200) {
-        const int reduction = 3;
+        const int R = 5 + depth / 3;
 
         State nullState;
         pos.make_null_move(nullState);
@@ -378,21 +378,20 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         Move nullPV[128];
         int nullPV_len = 0;
 
-        int NullValue = -negamax<NonPV>(pos, depth - 1 - reduction, ply + 1, -beta, -beta + 1, nullPV, nullPV_len, !cutNode);
+        int nullValue = -negamax<NonPV>(pos, depth - R, ply + 1, -beta, -beta + 1, nullPV, nullPV_len, !cutNode);
 
         pos.unmake_null_move(nullState);
 
         if (interrupted)
             return 0;
 
-        if (NullValue >= beta) {
-            return NullValue;
+        if (nullValue >= beta) {
+            return nullValue;
         }
     }
 
     // Razoring
-    if (!PvNode && !rootNode && !in_check(pos, pos.stm) && !is_decisive(alpha) && 
-        eval + 250 * depth <= alpha)
+    if (!PvNode && !rootNode && !in_check(pos, pos.stm) && !is_decisive(alpha) && eval + 250 * depth <= alpha)
         return qsearch<NonPV>(pos, alpha, beta, ply);
    
 
