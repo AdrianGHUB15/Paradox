@@ -22,7 +22,8 @@ void tt_init(std::size_t megabytes);
 void tt_clear();
 void tt_store(uint64_t key, int depth, int ply, int score, TTFlag flag, Move bestMove);
 
-bool tt_probe(uint64_t key, int depth, int ply, int alpha, int beta, int& score, Move& bestMove);
+bool tt_probe(uint64_t key, int depth, int ply, int alpha, int beta, int& score, Move& bestMove, int& ttDepth);
+bool tt_is_pv(uint64_t key, int depth);
 
 Move tt_get_move(uint64_t key);
 

@@ -72,9 +72,10 @@ Move tt_get_move(uint64_t key) {
     return entry.bestMove;
 }
 
-bool tt_probe(uint64_t key, int depth, int ply, int alpha, int beta, int& score, Move& bestMove) {
+bool tt_probe(uint64_t key, int depth, int ply, int alpha, int beta, int& score, Move& bestMove, int& ttDepth) {
 
     bestMove = 0;
+    ttDepth = 0;
 
     if (!TT || TTSize == 0)
         return false;
@@ -85,31 +86,26 @@ bool tt_probe(uint64_t key, int depth, int ply, int alpha, int beta, int& score,
         return false;
 
     bestMove = entry.bestMove;
+    ttDepth = entry.depth;
+
+    // Always expose the TT value, even if the entry is too shallow.
+    score = score_from_tt(entry.score, ply);
 
     if (entry.depth < depth)
         return false;
 
-    // Convert the stored score to the current ply before
-    // comparing it against alpha and beta.
-    int ttScore = score_from_tt(entry.score, ply);
-
     switch (entry.flag) {
     case TT_EXACT:
-        score = ttScore;
         return true;
 
     case TT_LOWER:
-        if (ttScore <= alpha) {
-            score = ttScore;
+        if (score <= alpha)
             return true;
-        }
         break;
 
     case TT_UPPER:
-        if (ttScore >= beta) {
-            score = ttScore;
+        if (score >= beta)
             return true;
-        }
         break;
     }
 
@@ -146,4 +142,16 @@ uint16_t tt_hashfull() {
     }
 
     return static_cast<uint16_t>((used * 1000) / sample);
+}
+
+bool tt_is_pv(uint64_t key, int depth) {
+    if (!TT || TTSize == 0)
+        return false;
+
+    TTEntry& entry = TT[tt_index(key)];
+
+    return entry.key == key
+        && entry.depth >= depth
+        && entry.flag == TT_EXACT
+        && entry.bestMove != 0;
 }

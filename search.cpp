@@ -54,6 +54,8 @@ bool infiniteSearch = false;
 bool interrupted = false;
 bool showCurrMove = true;
 
+static int reductions[256];
+
 struct RootMove {
     Move move = 0;
     Move pv[128]{};
@@ -133,6 +135,11 @@ void update_capture_history(Board& pos, Move m, int depth) {
     h += bonus - h * bonus / 16384;
 }
 
+static int lmr_reduction(bool i, int d, int mn) {
+    int reductionScale = reductions[d] * reductions[mn];
+    return reductionScale + !i * reductionScale * 197 / 512 + 948;
+}
+
 int move_score(Board& pos, Move m, int ply) {
 
     if (is_capture(m)) {
@@ -182,6 +189,17 @@ bool time_up() {
         return false;
 
     return elapsed_ms() >= uint64_t(TIME_LIMIT_MS);
+}
+
+struct SearchStack {
+    int staticEval = 0;
+};
+
+static SearchStack searchStack[MAX_PLY + 4];
+
+static void init_reductions() {
+    for (int i = 1; i < 256; ++i)
+        reductions[i] = int(2872 / 128.0 * std::log(i));
 }
 
 void print_info(int depth, int seldepth, int score, uint64_t ms,
@@ -315,6 +333,8 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
 
     pv_len = 0;
 
+    SearchStack* ss = &searchStack[ply + 4];
+
     if (pos.is_repetition() && ply > 0)
         return 0;
 
@@ -355,13 +375,24 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
 
     Move ttMove = 0;
     int ttScore = 0;
+    int ttDepth = 0;
 
-    if (tt_probe(pos.hash, depth, ply, alpha, beta, ttScore, ttMove)) {
+    if (tt_probe(pos.hash, depth, ply, alpha, beta, ttScore, ttMove, ttDepth)) {
         if (ply != 0 && !PvNode)
             return ttScore;
     }
 
+    bool ttPv = tt_is_pv(pos.hash, depth);
+    bool ttCapture = ttMove && is_capture(ttMove);
+
     int eval = evaluate(pos);
+
+    ss->staticEval = eval;
+
+    bool improving = false;
+
+    if (ply >= 2)
+        improving = eval > (ss - 2)->staticEval;
 
     // Reverse Futility Pruning (RFP)
     if (depth <= 6 && !rootNode && !in_check(pos, pos.stm) 
@@ -483,18 +514,36 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         int score;
         int reduction = 0;
         int extension = 0;
+        int newDepth = depth - 1;
 
         if (isCheck)
             extension++;
 
-        if (depth >= 3 && moveCount >= 4 && quiet) {
-            reduction = int(0.75 + std::log(depth) * std::log(moveCount) / 2.25);
+        newDepth += extension;
 
-            // Reduce less at PV nodes.
-            if (PvNode)
-                reduction--;
+        int r = 0;
 
-            reduction = std::max(reduction, 0);
+        if (depth >= 3 && moveCount >= 3 && quiet) {
+            r = lmr_reduction(improving, depth, moveCount);
+
+            r += 1353;
+
+            r -= moveCount * 41;
+
+            if (cutNode)
+                r += 1500 + 500 * !ttMove;
+
+            if (ttPv)
+                r -= 2000 + PvNode * 700 + (ttScore > alpha) * 512 + (ttDepth);
+
+            if (m == ttMove)
+                r -= 1500;
+
+            if (ttCapture)
+                r += 813;
+
+            if (allNode)
+                r += r * 276 / (256 * depth + 260);
         }
 
         if (showCurrMove && rootNode && nodes > nodes_printing) {
@@ -505,19 +554,23 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
                 << " nodes " << nodes << '\n';
         }
 
+        int reducedDepth = std::clamp(newDepth - r / 1024, 1, newDepth);
+
+        reduction = newDepth - reducedDepth;
+
         if (moveCount == 1 && PvNode) {
-            score = -negamax<PV>(pos, depth - 1 + extension, ply + 1, -beta, -alpha, childPV, childPV_len, false);
+            score = -negamax<PV>(pos, newDepth, ply + 1, -beta, -alpha, childPV, childPV_len, false);
         }
         else {
             // Later moves: reduced-depth scout search.
-            score = -negamax<NonPV>(pos, depth - 1 - reduction + extension, ply + 1, -alpha - 1, -alpha, childPV, childPV_len, !cutNode);
+            score = -negamax<NonPV>(pos, reducedDepth, ply + 1, -alpha - 1, -alpha, childPV, childPV_len, !cutNode);
 
             if (!interrupted && reduction > 0 && score > alpha) {
-                score = -negamax<NonPV>(pos, depth - 1 + extension, ply + 1, -alpha - 1, -alpha, childPV, childPV_len, !cutNode);
+                score = -negamax<NonPV>(pos, newDepth, ply + 1, -alpha - 1, -alpha, childPV, childPV_len, !cutNode);
             }
 
             if (!interrupted && score > alpha && score < beta && PvNode) {
-                score = -negamax<PV>(pos, depth - 1 + extension, ply + 1, -beta, -alpha, childPV, childPV_len, false);
+                score = -negamax<PV>(pos, newDepth, ply + 1, -beta, -alpha, childPV, childPV_len, false);
             }
         }
 
@@ -599,6 +652,8 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
 }
 
 Move search_bestmove(Board& pos, const SearchLimits& limits) {
+    init_reductions();
+
     multiPV = std::max(1, limits.multipv);
     pvIdx = 0;
     pvLast = 0;
