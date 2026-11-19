@@ -443,9 +443,6 @@ int evaluate(const Board& pos) {
         }
     }
 
-    // Tempo
-    mg += (pos.stm == WHITE ? evalParams.tempoBonus : -evalParams.tempoBonus);
-
     // ---------------- Tapered eval ----------------
     phase = std::min(phase, 24);
     int score = (mg * phase + eg * (24 - phase)) / 24;
