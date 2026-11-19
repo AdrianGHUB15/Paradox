@@ -438,6 +438,51 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     Move childPV[128];
     Move quietMoves[256];
 
+
+    // ProbCut
+    const int probCutBeta = beta + 241;
+
+    if (depth >= 3 && !rootNode && !PvNode && !in_check(pos, pos.stm) && !is_decisive(beta)) {
+        const int probCutDepth = depth - 3;
+
+        for (int i = 0; i < list.size; ++i) {
+            Move m = list.moves[i];
+
+            if (!is_capture(m))
+                continue;
+
+            if (see(pos, m) < 0)
+                continue;
+
+            State st;
+            pos.make_move(m, st);
+
+            // Preliminary qsearch verification
+            int score = -qsearch<NonPV>(pos, -probCutBeta, -probCutBeta + 1, ply + 1);
+
+            Move probPV[128];
+            int probPV_len = 0;
+
+            // Reduced-depth search if qsearch succeeds
+            if (score >= probCutBeta && probCutDepth > 0) {
+                score = -negamax<NonPV>(pos, probCutDepth, ply + 1, -probCutBeta, -probCutBeta + 1, probPV, probPV_len, !cutNode);
+            }
+
+            pos.unmake_move(st);
+
+            if (interrupted)
+                return 0;
+
+            if (score >= probCutBeta) {
+                // Store successful ProbCut as a lower bound.
+                tt_store(pos.hash, probCutDepth + 1, ply, score, TT_LOWER, m);
+
+                if (!is_decisive(score))
+                    return score - (probCutBeta - beta);
+            }
+        }
+    }
+
     int quietMoveCount = 0;
     int childPV_len = 0;
     int moveCount = 0;
