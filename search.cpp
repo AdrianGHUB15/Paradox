@@ -366,7 +366,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     // Reverse Futility Pruning (RFP)
     if (depth <= 6 && !rootNode && !in_check(pos, pos.stm) 
         && !is_decisive(beta) && beta <= eval - 100 * depth)
-        return eval;
+        return (2 * beta + eval) / 3;
 
     // Null Move Pruning (NMP)
     if (depth >= 3 && !PvNode && !rootNode && !in_check(pos, pos.stm) && eval >= beta + 200) {
