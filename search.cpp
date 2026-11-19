@@ -469,10 +469,17 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
 
         uint64_t moveNodesStart = nodes;
 
+        int reduction = 0;
+        int extension = 0;
+
+        bool isCheck = in_check(pos, pos.stm);
+
+        if (isCheck)
+            extension++;
+
         State st;
         pos.make_move(m, st);
 
-        bool isCheck = in_check(pos, pos.stm);
         bool quiet = !capture && !promotion && !isCheck;
 
         if (quiet)
@@ -481,11 +488,6 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         ++moveCount;
 
         int score;
-        int reduction = 0;
-        int extension = 0;
-
-        if (isCheck)
-            extension++;
 
         if (depth >= 3 && moveCount >= 4 && quiet) {
             reduction = int(0.75 + std::log(depth) * std::log(moveCount) / 2.25);
