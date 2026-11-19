@@ -469,9 +469,6 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
 
         uint64_t moveNodesStart = nodes;
 
-        State st;
-        pos.make_move(m, st);
-
         bool isCheck = in_check(pos, pos.stm);
         bool quiet = !capture && !promotion && !isCheck;
 
@@ -480,9 +477,17 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
 
         ++moveCount;
 
+        // Late Move Pruning
+        if (!PvNode && !rootNode && !in_check(pos, pos.stm)
+            && depth <= 5 && quiet && moveCount > 3 + depth * depth)
+            continue;
+
         int score;
         int reduction = 0;
         int extension = 0;
+
+        State st;
+        pos.make_move(m, st);
 
         if (isCheck)
             extension++;
