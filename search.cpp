@@ -475,6 +475,13 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         bool isCheck = in_check(pos, pos.stm);
         bool quiet = !capture && !promotion && !isCheck;
 
+        // History Pruning
+        if (!PvNode && !rootNode && !in_check(pos, pos.stm) && depth <= 4 && moveCount > 1
+            && quiet && history[from_sq(m)][to_sq(m)] < -750) {
+            pos.unmake_move(st);
+            continue;
+        }
+
         if (quiet)
             quietMoves[quietMoveCount++] = m;
 
