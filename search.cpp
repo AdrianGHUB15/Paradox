@@ -523,38 +523,36 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
 
         int r = 0;
 
-        if (depth >= 3 && moveCount >= 3 && quiet) {
-            r = lmr_reduction(improving, depth, moveCount);
+        r = lmr_reduction(improving, depth, moveCount);
 
-            r += 1353;
+        r += 481;
 
-            r -= moveCount * 41;
+        r -= moveCount * 41;
 
-            if (cutNode)
-                r += 1500 + 500 * !ttMove;
+        if (cutNode)
+            r += 1500 + 500 * !ttMove;
 
-            if (ttPv)
-                r -= 2000 + PvNode * 700 + (ttScore > alpha) * 512 + (ttDepth);
+        if (ttPv)
+            r -= 2000 + PvNode * 700 + (ttScore > alpha) * 512 + (ttDepth);
 
-            if (m == ttMove)
-                r -= 1500;
+        if (m == ttMove)
+            r -= 1500;
 
-            if (ttCapture)
-                r += 813;
+        if (ttCapture)
+            r += 813;
 
-            if (allNode)
-                r += r * 276 / (256 * depth + 260);
-        }
+        if (allNode)
+            r += r * 276 / (256 * depth + 260);
+
+        int reducedDepth = std::clamp(newDepth - r / 1024, 1, newDepth);
 
         if (showCurrMove && rootNode && nodes > nodes_printing) {
             std::cout << "info depth " << depth
-                << " search depth " << depth + extension - reduction
+                << " search depth " << reducedDepth
                 << " currmove " << move_to_string(ParentMove)
                 << " currmovenumber " << ParentCurrMove
                 << " nodes " << nodes << '\n';
         }
-
-        int reducedDepth = std::clamp(newDepth - r / 1024, 1, newDepth);
 
         reduction = newDepth - reducedDepth;
 
