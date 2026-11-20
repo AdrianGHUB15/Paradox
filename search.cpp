@@ -478,6 +478,12 @@ moves_loop:
         bool isCheck = in_check(pos, pos.stm);
         bool quiet = !capture && !promotion && !isCheck;
 
+        // Futility Pruning
+        if (!PvNode && !rootNode && depth <= 4 && moveCount > 1 && quiet && eval + 120 * depth <= alpha) {
+            pos.unmake_move(st);
+            continue;
+        }
+
         if (quiet)
             quietMoves[quietMoveCount++] = m;
 
