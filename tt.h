@@ -12,17 +12,18 @@ enum TTFlag : uint8_t {
 
 struct TTEntry {
     uint64_t key;
-    int16_t score;
-    uint8_t depth;
     Move bestMove;
+    int16_t score;
+    int16_t eval;
+    uint8_t depth;
     TTFlag flag;
 };
 
 void tt_init(std::size_t megabytes);
 void tt_clear();
-void tt_store(uint64_t key, int depth, int ply, int score, TTFlag flag, Move bestMove);
+void tt_store(uint64_t key, int depth, int ply, int score, int staticEval, TTFlag flag, Move bestMove);
 
-bool tt_probe(uint64_t key, int depth, int ply, int alpha, int beta, int& score, Move& bestMove);
+bool tt_probe(uint64_t key, int depth, int ply, int alpha, int beta, int& score, int& ttEval, Move& bestMove);
 
 Move tt_get_move(uint64_t key);
 

@@ -2,6 +2,7 @@
 #include "search.h"
 
 #include <cstring>
+#include <limits>
 #include <new>
 
 static TTEntry* TT = nullptr;
@@ -57,7 +58,10 @@ void tt_clear() {
     if (!TT || TTSize == 0)
         return;
 
-    std::memset(TT, 0, TTSize * sizeof(TTEntry));
+    for (size_t i = 0; i < TTSize; ++i) {
+        TT[i] = {};
+        TT[i].eval = INT16_MIN;
+    }
 }
 
 Move tt_get_move(uint64_t key) {
@@ -72,9 +76,10 @@ Move tt_get_move(uint64_t key) {
     return entry.bestMove;
 }
 
-bool tt_probe(uint64_t key, int depth, int ply, int alpha, int beta, int& score, Move& bestMove) {
+bool tt_probe(uint64_t key, int depth, int ply, int alpha, int beta, int& score, int& ttEval, Move& bestMove) {
 
     bestMove = 0;
+    ttEval = INT16_MIN;
 
     if (!TT || TTSize == 0)
         return false;
@@ -85,6 +90,7 @@ bool tt_probe(uint64_t key, int depth, int ply, int alpha, int beta, int& score,
         return false;
 
     bestMove = entry.bestMove;
+    ttEval = entry.eval;
 
     if (entry.depth < depth)
         return false;
@@ -99,24 +105,24 @@ bool tt_probe(uint64_t key, int depth, int ply, int alpha, int beta, int& score,
         return true;
 
     case TT_LOWER:
-        if (ttScore <= alpha) {
+        if (ttScore >= beta) {
             score = ttScore;
             return true;
         }
         break;
 
     case TT_UPPER:
-        if (ttScore >= beta) {
+        if (ttScore <= alpha) {
             score = ttScore;
             return true;
         }
         break;
     }
-
     return false;
 }
 
-void tt_store(uint64_t key, int depth, int ply, int score, TTFlag flag, Move bestMove) {
+    void tt_store(uint64_t key, int depth, int ply, int score, int staticEval, TTFlag flag, Move bestMove) {
+            
 
     if (!TT || TTSize == 0)
         return;
@@ -129,6 +135,7 @@ void tt_store(uint64_t key, int depth, int ply, int score, TTFlag flag, Move bes
     entry.key = key;
     entry.depth = static_cast<uint8_t>(depth);
     entry.score = static_cast<int16_t>(score_to_tt(score, ply));
+    entry.eval = static_cast<int16_t>(staticEval);
     entry.bestMove = bestMove;
     entry.flag = flag;
 }

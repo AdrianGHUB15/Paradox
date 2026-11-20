@@ -355,11 +355,19 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
 
     Move ttMove = 0;
     int ttScore = 0;
+    int ttEval = INT16_MIN;
 
-    if (tt_probe(pos.hash, depth, ply, alpha, beta, ttScore, ttMove)) {
+    if (tt_probe(pos.hash, depth, ply, alpha, beta,
+        ttScore, ttEval, ttMove)) {
         if (ply != 0 && !PvNode)
             return ttScore;
     }
+
+    int staticEval = evaluate(pos);
+    int eval = staticEval;
+
+    if (ttEval != INT16_MIN)
+        eval = ttEval;
 
     int eval = evaluate(pos);
     bool inCheck = in_check(pos, pos.stm);
@@ -372,7 +380,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         return eval;
 
     // Null Move Pruning (NMP)
-    if (depth >= 3 && !PvNode && !rootNode && eval >= beta + 200) {
+    if (depth >= 3 && !PvNode && !rootNode && staticEval >= beta + 200) {
         const int reduction = 4;
 
         State nullState;
@@ -394,7 +402,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     }
 
     // Razoring
-    if (!PvNode && !rootNode && !is_decisive(alpha) && eval + 250 * depth <= alpha)
+    if (!PvNode && !rootNode && !is_decisive(alpha) && staticEval + 250 * depth <= alpha)
         return qsearch<NonPV>(pos, alpha, beta, ply);
    
 moves_loop:
