@@ -372,7 +372,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         return eval;
 
     // Null Move Pruning (NMP)
-    if (depth >= 3 && !PvNode && !rootNode && eval >= beta + 200) {
+    if (!PvNode && !rootNode && eval >= beta + 200) {
         const int reduction = 4;
 
         State nullState;
