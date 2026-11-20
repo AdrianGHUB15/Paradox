@@ -362,15 +362,18 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     }
 
     int eval = evaluate(pos);
+    bool inCheck = in_check(pos, pos.stm);
+
+    if (inCheck)
+        goto moves_loop;
 
     // Reverse Futility Pruning (RFP)
-    if (depth <= 6 && !rootNode && !in_check(pos, pos.stm) 
-        && !is_decisive(beta) && beta <= eval - 100 * depth)
+    if (depth <= 6 && !rootNode && !is_decisive(beta) && beta <= eval - 100 * depth)
         return eval;
 
     // Null Move Pruning (NMP)
-    if (depth >= 3 && !PvNode && !rootNode && !in_check(pos, pos.stm) && eval >= beta + 200) {
-        const int reduction = 3;
+    if (depth >= 3 && !PvNode && !rootNode && eval >= beta + 200) {
+        const int reduction = 4;
 
         State nullState;
         pos.make_null_move(nullState);
@@ -378,23 +381,23 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         Move nullPV[128];
         int nullPV_len = 0;
 
-        int NullValue = -negamax<NonPV>(pos, depth - 1 - reduction, ply + 1, -beta, -beta + 1, nullPV, nullPV_len, !cutNode);
+        int nullValue = -negamax<NonPV>(pos, depth - reduction, ply + 1, -beta, -beta + 1, nullPV, nullPV_len, !cutNode);
 
         pos.unmake_null_move(nullState);
 
         if (interrupted)
             return 0;
 
-        if (NullValue >= beta) {
-            return NullValue;
+        if (nullValue >= beta) {
+            return nullValue;
         }
     }
 
     // Razoring
-    if (!PvNode && !rootNode && !in_check(pos, pos.stm) && !is_decisive(alpha) && 
-        eval + 250 * depth <= alpha)
+    if (!PvNode && !rootNode && !is_decisive(alpha) && eval + 250 * depth <= alpha)
         return qsearch<NonPV>(pos, alpha, beta, ply);
    
+moves_loop:
 
     int bestScore = -VALUE_INFINITE;
 
