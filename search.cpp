@@ -479,7 +479,7 @@ moves_loop:
         bool quiet = !capture && !promotion && !isCheck;
 
         // History Pruning
-        if (!PvNode && !rootNode && !isCheck && depth <= 4 && moveCount > 1 && quiet && history[from_sq(m)][to_sq(m)] < -750) {
+        if (!PvNode && !rootNode && !isCheck && depth <= 4 && moveCount > 1 && history[from_sq(m)][to_sq(m)] < -750) {
             pos.unmake_move(st);
             continue;
         }
