@@ -357,8 +357,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     int ttScore = 0;
     int ttEval = INT16_MIN;
 
-    if (tt_probe(pos.hash, depth, ply, alpha, beta,
-        ttScore, ttEval, ttMove)) {
+    if (tt_probe(pos.hash, depth, ply, alpha, beta, ttScore, ttEval, ttMove)) {
         if (ply != 0 && !PvNode)
             return ttScore;
     }
@@ -369,7 +368,6 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     if (ttEval != INT16_MIN)
         eval = ttEval;
 
-    int eval = evaluate(pos);
     bool inCheck = in_check(pos, pos.stm);
 
     if (inCheck)
