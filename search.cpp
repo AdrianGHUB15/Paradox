@@ -485,7 +485,7 @@ moves_loop:
         }
 
         // Futility Pruning
-        if (!PvNode && !rootNode && !isCheck && depth <= 4 && moveCount > 1 && quiet && eval + 120 * depth <= alpha) {
+        if (!PvNode && !rootNode && !isCheck && moveCount > 1 && quiet && eval + 120 * depth <= alpha) {
             pos.unmake_move(st);
             continue;
         }
