@@ -845,7 +845,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
                     }
 
                     // Allow more time if the evaluation drops significantly.
-                    int scoreDrop = previousIterationScore - finalScore;
+                    int scoreDrop = std::abs(previousIterationScore - finalScore);
 
                     if (scoreDrop >= 80)
                         timeFactor += 0.15;
