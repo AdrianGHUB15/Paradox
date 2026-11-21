@@ -714,6 +714,9 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
     NODE_LIMIT = limits.nodes;
 
     uint64_t lastDepthNodes = 0;
+    uint64_t previousIterationNodes = 0;
+    uint64_t lastIterationElapsed = 0;
+
     Move previousBestMove = 0;
     int previousIterationScore = 0;
     int stableBestMoveCount = 0;
@@ -865,16 +868,29 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
                     break;
                 }
 
-                // Estimate the cost of the next iteration.
-                uint64_t estimatedNextMs = 2 * (nodes - lastDepthNodes) * 1000ULL / std::max(uint64_t(1), update_nps());
+                // Estimate next iteration cost using measured node growth.
+                uint64_t iterationNodes = nodes - lastDepthNodes;
+                uint64_t currentElapsed = elapsed_ms();
+                uint64_t iterationMs = std::max(uint64_t(1), currentElapsed - lastIterationElapsed);
 
-                if (uint64_t(timeLeft) < estimatedNextMs) {
-                    std::cout << "info string insufficient time for next iteration, stopping at depth "
-                        << depth << "\n";
-                    break;
+                if (previousIterationNodes > 0) {
+                    double growthFactor = double(iterationNodes) / previousIterationNodes;
+
+                    // Avoid extreme estimates from unusually small or irregular iterations.
+                    growthFactor = std::clamp(growthFactor, 1.2, 4.0);
+
+                    uint64_t estimatedNextMs = uint64_t(iterationMs * growthFactor);
+
+                    if (uint64_t(timeLeft) < estimatedNextMs) {
+                        std::cout << "info string insufficient time for next iteration, stopping at depth "
+                            << depth << "\n";
+                        break;
+                    }
                 }
 
+                previousIterationNodes = iterationNodes;
                 lastDepthNodes = nodes;
+                lastIterationElapsed = currentElapsed;
             }
 
             continue;
