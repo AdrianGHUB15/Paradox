@@ -115,7 +115,7 @@ inline bool in_check(const Board& pos, Color side) {
 
 // make_move / unmake_move
 inline bool Board::make_move(Move m, State& st) {
-    nodes++;
+    nodes.fetch_add(1, std::memory_order_relaxed);
 
     // Save state
     st.castling = castling;

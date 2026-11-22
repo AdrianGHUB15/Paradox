@@ -1,13 +1,26 @@
 ﻿#define _CRT_SECURE_NO_WARNINGS
 
+#include <algorithm>
 #include <iostream>
 #include <sstream>
+#include <thread>
 
+#include "search.h"
 #include "movegen.h"
 #include "tt.h"
 
 static Board g_board;
 static int g_multiPV = 1;
+static int g_threads = 1;
+
+static std::thread g_searchThread;
+
+static void stop_and_join_search() {
+    if (g_searchThread.joinable()) {
+        stopRequested = true;
+        g_searchThread.join();
+    }
+}
 
 void perft_break(Board& pos, int depth);
 
@@ -144,6 +157,21 @@ static void cmd_setoption(const std::string& line) {
         std::cout << "info string MultiPV set to " << g_multiPV << "\n";
         return;
     }
+    if (name == "Threads") {
+        char* end = nullptr;
+        long requested = std::strtol(value.c_str(), &end, 10);
+
+        if (end == value.c_str() || *end != '\0') {
+            std::cout << "info string Invalid Threads value\n";
+            return;
+        }
+
+        requested = std::clamp(requested, 1L, 128L);
+        g_threads = static_cast<int>(requested);
+
+        std::cout << "info string Threads set to " << g_threads << "\n";
+        return;
+    }
 }
 
 // Position command
@@ -182,10 +210,14 @@ static void cmd_position(const std::string& line) {
 
 // Go command
 static void cmd_go(const std::string& line) {
+    stop_and_join_search();
+    stopRequested = false;
+
     tt_clear();
 
     SearchLimits limits;
     limits.multipv = g_multiPV;
+    limits.threads = g_threads;
 
     std::istringstream iss(line);
     std::string tok;
@@ -232,8 +264,15 @@ static void cmd_go(const std::string& line) {
     if (!limits.depth && !limits.movetime && !limits.wtime && !limits.btime)
         limits.infinite = true;
 
-    Move best = search_bestmove(g_board, limits);
-    std::cout << "bestmove " << move_to_string(best) << "\n";
+    Board searchBoard = g_board;
+
+    g_searchThread = std::thread([searchBoard, limits]() mutable {
+        Move best = search_bestmove(searchBoard, limits);
+        {
+            std::lock_guard<std::mutex> lock(outputMutex);
+            std::cout << "bestmove " << move_to_string(best) << std::endl;
+        }
+        });
 }
 
 // UCI LOOP
@@ -250,33 +289,43 @@ void uci_loop() {
             line.pop_back();
 
         if (line == "uci") {
+            std::lock_guard<std::mutex> lock(outputMutex);
+
             std::cout << "id name Paradox 3\n";
             std::cout << "id author Adrian Ladoni\n";
             std::cout << "option name Hash type spin default 16 min 1 max 131072\n";
-            std::cout << "option name Threads type spin default 1 min 1 max 1\n";
+            std::cout << "option name Threads type spin default 1 min 1 max 128\n";
             std::cout << "option name Clear Hash type button\n";
             std::cout << "option name MultiPV type spin default 1 min 1 max 256\n";
             std::cout << "uciok\n";
         }
         else if (line == "isready") {
+            std::lock_guard<std::mutex> lock(outputMutex);
             std::cout << "readyok\n";
         }
         else if (line.rfind("setoption", 0) == 0) {
+            stop_and_join_search();
+
+            std::lock_guard<std::mutex> lock(outputMutex);
             cmd_setoption(line);
         }
         else if (line == "perftsuite fast") {
+            stop_and_join_search();
             run_perft_suite_fast();
             std::cout.flush();
         }
         else if (line == "perftsuite long") {
+            stop_and_join_search();
             run_perft_suite_long();
             std::cout.flush();
         }
         else if (line == "perftsuite very long") {
+            stop_and_join_search();
             run_perft_suite_very_long();
             std::cout.flush();
         }
         else if (line.rfind("position", 0) == 0) {
+            stop_and_join_search();
             cmd_position(line);
         }
         else if (line.rfind("go", 0) == 0) {
@@ -286,12 +335,15 @@ void uci_loop() {
             stopRequested = true;
         }
         else if (line == "quit") {
+            stop_and_join_search();
             break;
         }
         else if (line == "d") {
+            std::lock_guard<std::mutex> lock(outputMutex);
             g_board.print();
         }
         else if (line.rfind("bench", 0) == 0) {
+            stop_and_join_search();
             std::istringstream bss(line);
             std::string btok;
             int bdepth = 0;
@@ -301,4 +353,5 @@ void uci_loop() {
             std::cout.flush();
         }
     }
+    stop_and_join_search();
 }

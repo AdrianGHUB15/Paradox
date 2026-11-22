@@ -2,8 +2,11 @@
 
 #include "move.h"
 
+#include <atomic>
 #include <string>
+#include <mutex>
 
+extern std::mutex outputMutex;
 struct SearchLimits {
     int depth = 0;
     int movetime = 0;
@@ -17,6 +20,8 @@ struct SearchLimits {
     int winc = 0, binc = 0;
     int movestogo = 30;
     int multipv = 1;
+    int threads = 1;
+    bool silent = false;
 };
 
 class Board;
@@ -29,8 +34,11 @@ int qsearch(Board& pos, int alpha, int beta, int ply);
 Move run_bench(int depth = 0);
 
 constexpr int MATE = 32000;
-extern bool stopRequested;
-extern bool infiniteSearch;
+
+extern std::atomic<bool> stopRequested;
+extern std::atomic<bool> infiniteSearch;
+
 extern int MAX_NODES;
 extern int MAX_DEPTH;
-extern uint64_t nodes;
+
+extern std::atomic<uint64_t> nodes;

@@ -1,10 +1,11 @@
 #include "board.h"
 #include "tt.h"
 
+#include <atomic>
 #include <chrono>
 #include <iostream>
 
-extern uint64_t nodes;
+extern std::atomic<uint64_t> nodes;
 
 Move run_bench(int depth) {
     static const char* bench_fens[] = {

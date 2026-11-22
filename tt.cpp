@@ -1,11 +1,16 @@
 #include "tt.h"
 #include "search.h"
 
+#include <array>
 #include <cstring>
+#include <mutex>
 #include <new>
 
 static TTEntry* TT = nullptr;
 static size_t TTSize = 0;
+
+static constexpr size_t TT_LOCK_STRIPES = 256;
+static std::array<std::mutex, TT_LOCK_STRIPES> TTMutex;
 
 static int score_to_tt(int score, int ply) {
     if (score >= MATE - 1000)
@@ -64,6 +69,7 @@ Move tt_get_move(uint64_t key) {
     if (!TT || TTSize == 0)
         return 0;
 
+    std::lock_guard<std::mutex> lock(TTMutex[tt_index(key) % TT_LOCK_STRIPES]);
     TTEntry& entry = TT[tt_index(key)];
 
     if (entry.key != key)
@@ -79,6 +85,7 @@ bool tt_probe(uint64_t key, int depth, int ply, int alpha, int beta, int& score,
     if (!TT || TTSize == 0)
         return false;
 
+    std::lock_guard<std::mutex> lock(TTMutex[tt_index(key) % TT_LOCK_STRIPES]);
     TTEntry& entry = TT[tt_index(key)];
 
     if (entry.key != key)
@@ -121,6 +128,7 @@ void tt_store(uint64_t key, int depth, int ply, int score, TTFlag flag, Move bes
     if (!TT || TTSize == 0)
         return;
 
+    std::lock_guard<std::mutex> lock(TTMutex[tt_index(key) % TT_LOCK_STRIPES]);
     TTEntry& entry = TT[tt_index(key)];
 
     if (entry.key == key && entry.depth > depth)
@@ -141,6 +149,8 @@ uint16_t tt_hashfull() {
     size_t used = 0;
 
     for (size_t i = 0; i < sample; ++i) {
+        std::lock_guard<std::mutex> lock(TTMutex[i % TT_LOCK_STRIPES]);
+
         if (TT[i].key != 0)
             ++used;
     }
