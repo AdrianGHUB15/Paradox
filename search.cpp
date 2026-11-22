@@ -744,6 +744,9 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
     NODE_LIMIT = limits.nodes;
     infiniteSearch = limits.infinite;
 
+    TIME_LIMIT_MS = 0;
+    SOFT_TIME_LIMIT_MS = 0;
+
     int time = (pos.stm == WHITE ? limits.wtime : limits.btime);
     int inc = (pos.stm == WHITE ? limits.winc : limits.binc);
 
@@ -785,10 +788,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
         TIME_LIMIT_MS = std::min(TIME_LIMIT_MS.load(), 500);
 
         if (SOFT_TIME_LIMIT_MS > 0)
-            SOFT_TIME_LIMIT_MS = std::min(
-                SOFT_TIME_LIMIT_MS.load(),
-                TIME_LIMIT_MS.load()
-            );
+            SOFT_TIME_LIMIT_MS = std::min(SOFT_TIME_LIMIT_MS.load(), TIME_LIMIT_MS.load());
     }
 
     // Number of search workers.
@@ -835,6 +835,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
 
     return best.bestMove ? best.bestMove : results[0].bestMove;
 }
+
 static Move search_worker(Board& pos, const SearchLimits& limits, WorkerResult& result) {
     silentOutput = limits.silent;
     multiPV = std::max(1, limits.multipv);
@@ -878,6 +879,10 @@ static Move search_worker(Board& pos, const SearchLimits& limits, WorkerResult& 
 
     for (int i = 0; i < legalMoves.size; ++i)
         rootMoveEffort[legalMoves.moves[i]] = 0;
+
+    // Root move generation is setup, not search.
+    if (limits.threads == 1)
+        nodes = 0;
 
     Move bestMove = 0;
     Move pv[128];
