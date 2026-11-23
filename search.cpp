@@ -818,7 +818,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
 
             // --- ADAPTIVE TIME MANAGEMENT ---
             if (timeManaged && !limits.movetime && SOFT_TIME_LIMIT_MS > 0 && finalPV_len > 0) {
-
+                // Calculate time factor
                 int elapsed = std::max(1, int(elapsed_ms()));
 
                 Move currentBestMove = rootMoves[0].move;
@@ -846,9 +846,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
 
                     // Allow more time if the evaluation drops significantly.
                     int scoreDrop = previousIterationScore - finalScore;
-
-                    if (scoreDrop >= 80)
-                        timeFactor += 0.15;
+                    timeFactor += std::clamp(scoreDrop, 0, 200) * 0.001;
                 }
 
                 previousBestMove = currentBestMove;
