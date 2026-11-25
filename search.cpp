@@ -655,17 +655,12 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
         int reserve = std::min(time - 1, std::max(20, time / 50));
         int usableTime = time - reserve;
 
-        int movesToGo = limits.movestogoProvided
-            ? std::max(1, limits.movestogo)
-            : 25;
+        int movesToGo = limits.movestogoProvided ? std::max(1, limits.movestogo) : 25;
 
         int optimumTime = time / movesToGo + inc * 3 / 4;
         optimumTime = std::clamp(optimumTime, 1, usableTime);
 
-        int maximumTime = std::min(
-            usableTime,
-            std::max(optimumTime * 3, optimumTime + 50)
-        );
+        int maximumTime = std::min(usableTime, std::max(optimumTime * 3, optimumTime + 50));
 
         SOFT_TIME_LIMIT_MS = optimumTime;
         TIME_LIMIT_MS = maximumTime;
@@ -716,7 +711,7 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
     uint64_t lastDepthNodes = 0;
     Move previousBestMove = 0;
     int previousIterationScore = 0;
-    int stableBestMoveCount = 0;
+    int lastBestMoveChangeDepth = 0;
     bool havePreviousIteration = false;
 
     int dynamicSoftTimeLimit = SOFT_TIME_LIMIT_MS;
@@ -827,28 +822,22 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
 
                 if (havePreviousIteration) {
 
-                    if (currentBestMove == previousBestMove) {
-                        stableBestMoveCount++;
+                    if (currentBestMove != previousBestMove)
+                        lastBestMoveChangeDepth = depth;
 
-                        if (stableBestMoveCount >= 3)
-                            timeFactor = 0.75;
+                    int stableDepth = depth - lastBestMoveChangeDepth;
 
-                        else if (stableBestMoveCount == 2)
-                            timeFactor = 0.85;
-
-                        else
-                            timeFactor = 0.95;
-                    }
-                    else {
-                        stableBestMoveCount = 0;
-                        timeFactor = 1.15;
-                    }
+                    // Reduce time as the best move remains stable.
+                    timeFactor = std::clamp(1.15 - stableDepth * 0.1, 0.75, 1.15);
 
                     // Allow more time if the evaluation drops significantly.
                     int scoreDrop = previousIterationScore - finalScore;
 
                     if (scoreDrop >= 80)
                         timeFactor += 0.15;
+                }
+                else {
+                    lastBestMoveChangeDepth = depth;
                 }
 
                 previousBestMove = currentBestMove;
