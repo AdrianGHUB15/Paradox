@@ -422,6 +422,42 @@ int evaluate(const Board& pos) {
             }
         }
 
+
+        // Rook behind passed pawns
+        {
+            Bitboard passed = ourPawn;
+
+            while (passed) {
+                int pawnSq = pop_lsb(passed);
+
+                if (theirPawn & passed_mask[col][pawnSq])
+                    continue;
+
+                int file = pawnSq & 7;
+                int pawnRank = pawnSq / 8;
+
+                Bitboard rooks = rook;
+
+                while (rooks) {
+                    int rookSq = pop_lsb(rooks);
+
+                    if ((rookSq & 7) != file)
+                        continue;
+
+                    int rookRank = rookSq / 8;
+
+                    bool behind = (col == WHITE)
+                        ? rookRank < pawnRank
+                        : rookRank > pawnRank;
+
+                    if (behind) {
+                        mg += sign * 15;
+                        eg += sign * 25;
+                    }
+                }
+            }
+        }
+
         // King safety: pawn shield
         {
             int kingSq = pos.kingSq[col];
