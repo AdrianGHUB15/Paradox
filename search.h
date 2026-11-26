@@ -34,3 +34,4 @@ extern bool infiniteSearch;
 extern int MAX_NODES;
 extern int MAX_DEPTH;
 extern uint64_t nodes;
+extern bool MoreInfo;
