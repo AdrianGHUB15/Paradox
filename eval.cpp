@@ -405,6 +405,77 @@ int evaluate(const Board& pos) {
             }
         }
 
+
+        // Backward pawns
+        {
+            Bitboard pawns = ourPawn;
+
+            while (pawns) {
+                int sq = pop_lsb(pawns);
+                int file = sq & 7;
+                int rank = sq / 8;
+
+                // Find friendly pawns on adjacent files.
+                Bitboard adjacentFiles = 0;
+
+                if (file > 0)
+                    adjacentFiles |= file_mask[file - 1];
+
+                if (file < 7)
+                    adjacentFiles |= file_mask[file + 1];
+
+                Bitboard supportingPawns = ourPawn & adjacentFiles;
+
+                bool canBeSupported = false;
+
+                while (supportingPawns) {
+                    int supportSq = pop_lsb(supportingPawns);
+
+                    int supportRank = supportSq / 8;
+
+                    if (col == WHITE && supportRank <= rank)
+                        canBeSupported = true;
+
+                    if (col == BLACK && supportRank >= rank)
+                        canBeSupported = true;
+                }
+
+                if (canBeSupported)
+                    continue;
+
+                int forwardSq = sq + (col == WHITE ? 8 : -8);
+
+                if (forwardSq < 0 || forwardSq >= 64)
+                    continue;
+
+                if (occ & (1ULL << forwardSq))
+                    continue;
+
+                // Enemy pawn controls the square in front.
+                Bitboard enemyPawnAttacks = 0;
+
+                if (col == WHITE) {
+                    if (file > 0 && forwardSq >= 9)
+                        enemyPawnAttacks |= 1ULL << (forwardSq - 9);
+
+                    if (file < 7 && forwardSq >= 7)
+                        enemyPawnAttacks |= 1ULL << (forwardSq - 7);
+                }
+                else {
+                    if (file > 0 && forwardSq <= 54)
+                        enemyPawnAttacks |= 1ULL << (forwardSq + 7);
+
+                    if (file < 7 && forwardSq <= 55)
+                        enemyPawnAttacks |= 1ULL << (forwardSq + 9);
+                }
+
+                if (theirPawn & enemyPawnAttacks) {
+                    mg -= sign * 12;
+                    eg -= sign * 18;
+                }
+            }
+        }
+
         // Passed pawns
         {
             Bitboard bb = ourPawn;
