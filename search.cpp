@@ -15,7 +15,7 @@
 uint64_t nodes = 0;
 uint64_t NODE_LIMIT = 0;
 
-uint32_t nodes_printing = 10000000ULL;
+uint32_t nodes_printing = 50000000ULL;
 
 Move finalPV[128];
 Move currentPV[128];
@@ -53,6 +53,7 @@ bool stopRequested = false;
 bool infiniteSearch = false;
 bool interrupted = false;
 bool showCurrMove = true;
+bool MoreInfo = false;
 
 struct RootMove {
     Move move = 0;
@@ -513,9 +514,15 @@ moves_loop:
         }
 
         if (showCurrMove && rootNode && nodes > nodes_printing) {
-            std::cout << "info depth " << depth
-                << " search depth " << depth + extension - reduction
-                << " currmove " << move_to_string(ParentMove)
+            if (MoreInfo)
+                std::cout << "info root depth " << rootDepth;
+
+            std::cout << "info depth " << depth;
+
+            if (MoreInfo)
+                std::cout << " search depth " << depth + extension - reduction;
+
+            std::cout << " currmove " << move_to_string(ParentMove)
                 << " currmovenumber " << ParentCurrMove
                 << " nodes " << nodes << '\n';
         }

@@ -2,9 +2,14 @@
 
 #include <iostream>
 #include <sstream>
+#include <algorithm>
+#include <cctype>
+#include <string>
 
 #include "movegen.h"
 #include "tt.h"
+#include "search.h"
+#include "eval.h"
 
 static Board g_board;
 static int g_multiPV = 1;
@@ -32,6 +37,22 @@ static int uci_promo_to_code(char c) {
     case 'q': return PROMO_Q;
     default:  return PROMO_NONE;
     }
+}
+
+static void cmd_eval() {
+    int score = evaluate(g_board);
+
+    std::cout << "info string Static evaluation: "
+        << (score > 0 ? "+" : "")
+        << score << " cp\n";
+}
+
+static bool equals_ignore_case(const std::string& a, const std::string& b) {
+    return a.size() == b.size() &&
+        std::equal(a.begin(), a.end(), b.begin(),
+            [](unsigned char x, unsigned char y) {
+                return std::tolower(x) == std::tolower(y);
+            });
 }
 
 // Apply UCI moves
@@ -103,15 +124,11 @@ static void cmd_setoption(const std::string& line) {
         value.erase(value.begin());
     }
 
-    if (name == "Hash") {
+    if (equals_ignore_case(name, "Hash")) {
 
         int mb = std::atoi(value.c_str());
 
-        if (mb < 1)
-            mb = 1;
-
-        if (mb > 131072)
-            mb = 131072;
+        mb = std::clamp(mb, 1, 131072);
 
         tt_init(mb);
 
@@ -120,7 +137,7 @@ static void cmd_setoption(const std::string& line) {
         return;
     }
 
-    if (name == "Clear Hash") {
+    if (equals_ignore_case(name, "Clear Hash")) {
 
         tt_clear();
 
@@ -129,7 +146,16 @@ static void cmd_setoption(const std::string& line) {
         return;
     }
 
-    if (name == "MultiPV") {
+    if (equals_ignore_case(name, "More Info")) {
+        MoreInfo = (value == "true" || value == "1");
+
+        std::cout << "info string More Info set to "
+            << (MoreInfo ? "true" : "false") << "\n";
+
+        return;
+    }
+
+    if (equals_ignore_case(name, "MultiPV")) {
         char* end = nullptr;
         long requested = std::strtol(value.c_str(), &end, 10);
 
@@ -138,7 +164,7 @@ static void cmd_setoption(const std::string& line) {
             return;
         }
 
-        requested = std::max(1L, std::min(256L, requested));
+        requested = std::clamp(requested, 1L, 256L);
         g_multiPV = static_cast<int>(requested);
 
         std::cout << "info string MultiPV set to " << g_multiPV << "\n";
@@ -256,6 +282,7 @@ void uci_loop() {
             std::cout << "option name Threads type spin default 1 min 1 max 1\n";
             std::cout << "option name Clear Hash type button\n";
             std::cout << "option name MultiPV type spin default 1 min 1 max 256\n";
+            std::cout << "option name More Info type check default false\n";
             std::cout << "uciok\n";
         }
         else if (line == "isready") {
@@ -290,6 +317,9 @@ void uci_loop() {
         }
         else if (line == "d") {
             g_board.print();
+        }
+        else if (line == "eval") {
+            cmd_eval();
         }
         else if (line.rfind("bench", 0) == 0) {
             std::istringstream bss(line);
