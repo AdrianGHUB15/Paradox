@@ -165,7 +165,10 @@ EvalParams evalParams = {
     {0,20,40,60,80,120,160,0},
 
     // King safety
-    10
+    10,
+
+    // King attack
+    8
 };
 
 static inline int mirror_sq(int sq) { return sq ^ 56; }
@@ -441,6 +444,49 @@ int evaluate(const Board& pos) {
 
             mg -= sign * missing * evalParams.pawnShieldPenalty;
         }
+
+
+        // Enemy attacks around our king
+        {
+            int kingSq = pos.kingSq[col];
+
+            Bitboard kingZone = attacks_king(kingSq)
+                | (1ULL << kingSq);
+
+            Bitboard enemyAttacks = 0;
+
+            Color enemy = !col;
+
+            Bitboard enemyKnights = pos.pieceBB[enemy][KNIGHT];
+            Bitboard enemyBishops = pos.pieceBB[enemy][BISHOP];
+            Bitboard enemyRooks = pos.pieceBB[enemy][ROOK];
+            Bitboard enemyQueens = pos.pieceBB[enemy][QUEEN];
+
+            while (enemyKnights) {
+                int sq = pop_lsb(enemyKnights);
+                enemyAttacks |= attacks_knight(sq);
+            }
+
+            while (enemyBishops) {
+                int sq = pop_lsb(enemyBishops);
+                enemyAttacks |= bishop_attack(sq, occ);
+            }
+
+            while (enemyRooks) {
+                int sq = pop_lsb(enemyRooks);
+                enemyAttacks |= rook_attack(sq, occ);
+            }
+
+            while (enemyQueens) {
+                int sq = pop_lsb(enemyQueens);
+                enemyAttacks |= queen_attack(sq, occ);
+            }
+
+            int attackedSquares = popcount(kingZone & enemyAttacks);
+
+            mg -= sign * attackedSquares * evalParams.kingAttackMG;
+        }
+
     }
 
     // ---------------- Tapered eval ----------------

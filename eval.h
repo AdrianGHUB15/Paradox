@@ -46,6 +46,9 @@ struct EvalParams {
 
     // --- King safety ---
     int pawnShieldPenalty;
+
+    // --- King Attack ---
+    int kingAttackMG;
 };
 
 extern EvalParams evalParams;
