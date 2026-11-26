@@ -455,7 +455,7 @@ int evaluate(const Board& pos) {
 
             Bitboard enemyAttacks = 0;
 
-            Color enemy = !col;
+            Color enemy = (col == WHITE) ? BLACK : WHITE;
 
             Bitboard enemyKnights = pos.pieceBB[enemy][KNIGHT];
             Bitboard enemyBishops = pos.pieceBB[enemy][BISHOP];
