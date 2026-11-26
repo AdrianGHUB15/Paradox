@@ -425,21 +425,31 @@ int evaluate(const Board& pos) {
         // King safety: pawn shield
         {
             int kingSq = pos.kingSq[col];
-            int file = kingSq & 7;
+            int kingRank = kingSq / 8;
+            int kingFile = kingSq & 7;
 
-            int missing = 0;
+            // Only evaluate pawn shields while the king
+            // remains reasonably close to its home rank.
+            bool kingSheltered = (col == WHITE) ? kingRank <= 2 : kingRank >= 5;
 
-            for (int df = -1; df <= 1; df++) {
-                int f = file + df;
-                if (f < 0 || f > 7) continue;
+            if (kingSheltered) {
+                int shieldRank = kingRank + (col == WHITE ? 1 : -1);
+                int missing = 0;
 
-                int sq = (col == WHITE ? 8 + f : 48 + f);
+                for (int df = -1; df <= 1; df++) {
+                    int file = kingFile + df;
 
-                if (!(ourPawn & (1ULL << sq)))
-                    missing++;
+                    if (file < 0 || file > 7)
+                        continue;
+
+                    int sq = shieldRank * 8 + file;
+
+                    if (!(ourPawn & (1ULL << sq)))
+                        missing++;
+                }
+
+                mg -= sign * missing * evalParams.pawnShieldPenalty;
             }
-
-            mg -= sign * missing * evalParams.pawnShieldPenalty;
         }
     }
 
