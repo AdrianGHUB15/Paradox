@@ -401,6 +401,9 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
 
             int verif = negamax<NonPV>(pos, depth - reduction, ply, beta - 1, beta, verifPV, verifPV_len, !cutNode);
 
+            if (interrupted)
+                return 0;
+
             nmpMinPly = 0;
 
             if (verif >= beta)
