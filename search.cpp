@@ -80,7 +80,7 @@ std::chrono::steady_clock::time_point startTime;
 static void sort_root_moves() {
     std::stable_sort(rootMoves.begin(), rootMoves.end(),
         [](const RootMove& a, const RootMove& b) {
-            return a.score 
+            return a.score
                  > b.score;
         });
 }
@@ -264,6 +264,7 @@ int qsearch(Board& pos, int alpha, int beta, int ply) {
     }
 
     int standPat = evaluate(pos);
+    bool inCheck = inCheck(pos, pos.stm);
 
     if (standPat >= beta)
         return beta;
@@ -274,9 +275,15 @@ int qsearch(Board& pos, int alpha, int beta, int ply) {
     MoveList list;
     generate_legal(pos, list);
 
-    for (int i = 0; i < list.size; i++) {
+    int moveCount = 0;
 
+    for (int i = 0; i < list.size; i++) {
         Move m = list.moves[i];
+
+        moveCount++;
+
+        if (moveCount > 2 && !inCheck)
+            continue;
 
         if (!is_capture(m))
             continue;
@@ -397,7 +404,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     // Razoring
     if (!PvNode && !rootNode && !is_decisive(alpha) && eval + 250 * depth <= alpha)
         return qsearch<NonPV>(pos, alpha, beta, ply);
-   
+
 moves_loop:
 
     int bestScore = -VALUE_INFINITE;
@@ -432,11 +439,11 @@ moves_loop:
     if (ttMove != 0 && list.size > 0 && list.moves[0] == ttMove)
         sortStart = 1;
 
-    std::stable_sort(list.moves + sortStart, 
-                     list.moves + list.size,
+    std::stable_sort(list.moves + sortStart,
+        list.moves + list.size,
         [&](Move a, Move b) {
             return move_score(pos, a, ply)
-                 > move_score(pos, b, ply);
+    > move_score(pos, b, ply);
         });
 
     Move childPV[128];
@@ -914,11 +921,11 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
         uint64_t nps = update_nps();
 
         std::cout << "info string bench summary: "
-                  << nodes << " nodes " << nps << " nps\n";
+            << nodes << " nodes " << nps << " nps\n";
 
         std::cout << "bench: " << ms << " ms "
-                  << nodes << " nodes "
-                  << nps << " nps" << std::endl;
+            << nodes << " nodes "
+            << nps << " nps" << std::endl;
     }
 
     // After iterative deepening loop ends
