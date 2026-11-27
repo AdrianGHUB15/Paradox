@@ -63,17 +63,17 @@ extern Bitboard PAWN_PUSH2[2][64];
 
 // Magic lookup functions
 inline Bitboard bishop_attack(int sq, Bitboard occ) {
-    Bitboard o = occ & bishopMasks[sq];
-    o *= bishopMagics[sq];
-    o >>= bishopShifts[sq];
-    return bishopAttacks[sq][o];
+    return bishopAttacks[sq][
+        ((occ & bishopMasks[sq]) * bishopMagics[sq])
+            >> bishopShifts[sq]
+    ];
 }
 
 inline Bitboard rook_attack(int sq, Bitboard occ) {
-    Bitboard o = occ & rookMasks[sq];
-    o *= rookMagics[sq];
-    o >>= rookShifts[sq];
-    return rookAttacks[sq][o];
+    return rookAttacks[sq][
+        ((occ & rookMasks[sq]) * rookMagics[sq])
+            >> rookShifts[sq]
+    ];
 }
 
 inline Bitboard queen_attack(int sq, Bitboard occ) {
