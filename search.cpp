@@ -311,7 +311,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     constexpr bool PvNode = nodeType != NonPV;
     constexpr bool rootNode = nodeType == Root;
     const bool allNode = !(PvNode || cutNode);
-    const int nmpMinPly;
+    int nmpMinPly;
 
     seldepth = std::max(seldepth, ply);
 
