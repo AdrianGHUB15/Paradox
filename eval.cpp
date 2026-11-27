@@ -301,31 +301,11 @@ int evaluate(const Board& pos) {
                     (col == BLACK && rank > 3))
                     continue;
 
-                bool protectedByPawn = false;
-                bool attackedByPawn = false;
+                bool protectedByPawn =
+                    (ourPawn & attacks_pawn(Color(1 - c), sq)) != 0;
 
-                if (col == WHITE) {
-                    if (file > 0 && sq >= 9)
-                        protectedByPawn |= ourPawn & (1ULL << (sq - 9));
-                    if (file < 7 && sq >= 7)
-                        protectedByPawn |= ourPawn & (1ULL << (sq - 7));
-
-                    if (file > 0 && sq <= 55)
-                        attackedByPawn |= theirPawn & (1ULL << (sq + 7));
-                    if (file < 7 && sq <= 54)
-                        attackedByPawn |= theirPawn & (1ULL << (sq + 9));
-                }
-                else {
-                    if (file > 0 && sq <= 54)
-                        protectedByPawn |= ourPawn & (1ULL << (sq + 7));
-                    if (file < 7 && sq <= 55)
-                        protectedByPawn |= ourPawn & (1ULL << (sq + 9));
-
-                    if (file > 0 && sq >= 9)
-                        attackedByPawn |= theirPawn & (1ULL << (sq - 9));
-                    if (file < 7 && sq >= 7)
-                        attackedByPawn |= theirPawn & (1ULL << (sq - 7));
-                }
+                bool attackedByPawn =
+                    (theirPawn & attacks_pawn(col, sq)) != 0;
 
                 if (protectedByPawn && !attackedByPawn) {
                     mg += sign * 15;
