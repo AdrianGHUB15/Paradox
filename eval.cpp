@@ -411,7 +411,7 @@ int evaluate(const Board& pos) {
 
             while (bb) {
                 int sq = pop_lsb(bb);
-                int rank = (col == WHITE ? sq / 8 : 7 - (sq / 8));
+                int rank = (sq >> 3) ^ (col == BLACK ? 7 : 0);
 
                 Bitboard mask = passed_mask[col][sq];
 
