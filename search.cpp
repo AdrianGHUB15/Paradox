@@ -28,6 +28,7 @@ static int history[64][64];
 static int pvIdx = 0;
 static int pvLast = 0;
 static int multiPV = 1;
+static int nmpMinPly = 0;
 
 static constexpr int ASPIRATION_WINDOW = 25;
 
@@ -311,7 +312,6 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     constexpr bool PvNode = nodeType != NonPV;
     constexpr bool rootNode = nodeType == Root;
     const bool allNode = !(PvNode || cutNode);
-    int nmpMinPly;
 
     seldepth = std::max(seldepth, ply);
 
@@ -383,7 +383,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         Move nullPV[128];
         int nullPV_len = 0;
 
-        int nullValue = -negamax<NonPV>(pos, depth - reduction, ply + 1, -beta, -beta + 1, nullPV, nullPV_len, false);
+        int nullValue = -negamax<NonPV>(pos, depth - reduction, ply + 1, -beta, -beta + 1, nullPV, nullPV_len, !cutNode);
 
         pos.unmake_null_move(nullState);
 
@@ -399,7 +399,9 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
             Move verifPV[128];
             int verifPV_len = 0;
 
-            int verif = negamax<NonPV>(pos, depth - reduction, ply, beta - 1, beta, verifPV, verifPV_len, false);
+            int verif = negamax<NonPV>(pos, depth - reduction, ply, beta - 1, beta, verifPV, verifPV_len, !cutNode);
+
+            nmpMinPly = 0;
 
             if (verif >= beta)
                 return nullValue;
