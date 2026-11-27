@@ -134,6 +134,7 @@ void update_capture_history(Board& pos, Move m, int depth) {
     h += bonus - h * bonus / 16384;
 }
 
+
 int move_score(Board& pos, Move m, int ply) {
 
     if (is_capture(m)) {
@@ -141,10 +142,17 @@ int move_score(Board& pos, Move m, int ply) {
         Piece attacker = pos.piece_at(from_sq(m));
 
         if (victim != NO_PIECE && attacker != NO_PIECE) {
-            return 30000000
-                + PieceValue[victim] * 100
-                - PieceValue[attacker]
-                + captureHistory[attacker][to_sq(m)][victim] / 4;
+            int seeScore = see(pos, m);
+
+            int captureScore = PieceValue[victim] * 100 - PieceValue[attacker]
+                             + captureHistory[attacker][to_sq(m)][victim] / 4;
+
+            // Winning and equal captures first.
+            if (seeScore >= 0)
+                return 30000000 + captureScore;
+
+            // Losing captures after quiet moves.
+            return -10000000 + captureScore;
         }
     }
 
