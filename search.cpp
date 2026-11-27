@@ -25,6 +25,9 @@ static Move killers[128][2];
 static int captureHistory[6][64][6];
 static int history[64][64];
 
+static Move counterMoves[64][64];
+static Move previousMoves[128]{};
+
 static int pvIdx = 0;
 static int pvLast = 0;
 static int multiPV = 1;
@@ -153,6 +156,11 @@ int move_score(Board& pos, Move m, int ply) {
 
     if (m == killers[ply][1])
         return 19000000;
+
+    Move previous = previousMoves[ply];
+
+    if (previous != 0 && m == counterMoves[from_sq(previous)][to_sq(previous)])
+        return 17000000;
 
     return history[from_sq(m)][to_sq(m)];
 }
@@ -382,6 +390,9 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         Move nullPV[128];
         int nullPV_len = 0;
 
+        if (ply + 1 < MAX_PLY)
+            previousMoves[ply + 1] = 0;
+
         int nullValue = -negamax<NonPV>(pos, depth - reduction, ply + 1, -beta, -beta + 1, nullPV, nullPV_len, !cutNode);
 
         pos.unmake_null_move(nullState);
@@ -475,6 +486,9 @@ moves_loop:
 
         State st;
         pos.make_move(m, st);
+
+        if (ply + 1 < MAX_PLY)
+            previousMoves[ply + 1] = m;
 
         bool isCheck = in_check(pos, pos.stm);
         bool quiet = !capture && !promotion && !isCheck;
@@ -585,6 +599,11 @@ moves_loop:
             else {
                 update_history(m, bonus);
 
+                Move previous = previousMoves[ply];
+
+                if (quiet && previous != 0)
+                    counterMoves[from_sq(previous)][to_sq(previous)] = m;
+
                 killers[ply][1] = killers[ply][0];
                 killers[ply][0] = m;
             }
@@ -686,6 +705,8 @@ Move search_bestmove(Board& pos, const SearchLimits& limits) {
     std::memset(history, 0, sizeof(history));
     std::memset(killers, 0, sizeof(killers));
     std::memset(captureHistory, 0, sizeof(captureHistory));
+    std::memset(counterMoves, 0, sizeof(counterMoves));
+    std::memset(previousMoves, 0, sizeof(previousMoves));
 
     MoveList legalMoves;
     generate_legal(pos, legalMoves);
