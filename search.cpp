@@ -311,6 +311,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
     constexpr bool PvNode = nodeType != NonPV;
     constexpr bool rootNode = nodeType == Root;
     const bool allNode = !(PvNode || cutNode);
+    const int nmpMinPly;
 
     seldepth = std::max(seldepth, ply);
 
@@ -373,7 +374,7 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         return eval;
 
     // Null Move Pruning (NMP)
-    if (depth >= 3 && !PvNode && !rootNode && eval >= beta + 200) {
+    if (depth >= 3 && !PvNode && !rootNode && eval >= beta + 200 && ply >= nmpMinPly) {
         const int reduction = 4;
 
         State nullState;
@@ -382,15 +383,26 @@ int negamax(Board& pos, int depth, int ply, int alpha, int beta, Move pv[], int&
         Move nullPV[128];
         int nullPV_len = 0;
 
-        int nullValue = -negamax<NonPV>(pos, depth - reduction, ply + 1, -beta, -beta + 1, nullPV, nullPV_len, !cutNode);
+        int nullValue = -negamax<NonPV>(pos, depth - reduction, ply + 1, -beta, -beta + 1, nullPV, nullPV_len, false);
 
         pos.unmake_null_move(nullState);
 
         if (interrupted)
             return 0;
 
-        if (nullValue >= beta) {
-            return nullValue;
+        if (nullValue >= beta && !is_win(nullValue)) {
+            if (nmpMinPly || depth <= 15)
+                return nullValue;
+
+            nmpMinPly = ply + 3 * (depth - reduction) / 4;
+
+            Move verifPV[128];
+            int verifPV_len = 0;
+
+            int verif = negamax<NonPV>(pos, depth - reduction, ply, beta - 1, beta, verifPV, verifPV_len, false);
+
+            if (verif >= beta)
+                return nullValue;
         }
     }
 
