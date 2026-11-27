@@ -264,7 +264,7 @@ int qsearch(Board& pos, int alpha, int beta, int ply) {
     }
 
     int standPat = evaluate(pos);
-    bool inCheck = inCheck(pos, pos.stm);
+    bool inCheck = in_check(pos, pos.stm);
 
     if (standPat >= beta)
         return beta;
@@ -282,7 +282,7 @@ int qsearch(Board& pos, int alpha, int beta, int ply) {
 
         moveCount++;
 
-        if (moveCount > 2 && !inCheck)
+        if (moveCount > 4 && !inCheck)
             continue;
 
         if (!is_capture(m))
