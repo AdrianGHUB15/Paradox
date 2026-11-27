@@ -20,7 +20,8 @@ uint32_t nodes_printing = 50000000ULL;
 Move finalPV[128];
 Move currentPV[128];
 
-static Move killers[128][2];
+static constexpr int MAX_KILLERS = 3;
+static Move killers[128][MAX_KILLERS];
 
 static int captureHistory[6][64][6];
 static int history[64][64];
@@ -148,11 +149,10 @@ int move_score(Board& pos, Move m, int ply) {
         }
     }
 
-    if (m == killers[ply][0])
-        return 20000000;
-
-    if (m == killers[ply][1])
-        return 19000000;
+    for (int i = 0; i < MAX_KILLERS; ++i) {
+        if (m == killers[ply][i])
+            return 20000000 - i * 1000000;
+    }
 
     return history[from_sq(m)][to_sq(m)];
 }
@@ -585,7 +585,9 @@ moves_loop:
             else {
                 update_history(m, bonus);
 
-                killers[ply][1] = killers[ply][0];
+                for (int i = MAX_KILLERS - 1; i > 0; --i)
+                    killers[ply][i] = killers[ply][i - 1];
+
                 killers[ply][0] = m;
             }
 
