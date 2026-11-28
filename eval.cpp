@@ -387,20 +387,10 @@ int evaluate(const Board& pos) {
                 }
 
                 // Isolated pawns
-                if (count) {
-                    Bitboard adjacentFiles = 0;
-
-                    if (file > 0)
-                        adjacentFiles |= file_mask[file - 1];
-
-                    if (file < 7)
-                        adjacentFiles |= file_mask[file + 1];
-
-                    if (!(ourPawn & adjacentFiles)) {
-                        int penalty = count * 10;
-                        mg -= sign * penalty;
-                        eg -= sign * penalty;
-                    }
+                if (count && !(ourPawn & adjacent_files_mask[file])) {
+                    int penalty = count * 10;
+                    mg -= sign * penalty;
+                    eg -= sign * penalty;
                 }
             }
         }
