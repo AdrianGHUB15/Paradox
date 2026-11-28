@@ -397,17 +397,21 @@ int evaluate(const Board& pos) {
             int kingSq = pos.kingSq[col];
             int file = kingSq & 7;
 
-            int missing = 0;
+            Bitboard shieldMask = 0;
 
-            for (int df = -1; df <= 1; df++) {
-                int f = file + df;
-                if (f < 0 || f > 7) continue;
-
-                int sq = (col == WHITE ? 8 + f : 48 + f);
-
-                if (!(ourPawn & (1ULL << sq)))
-                    missing++;
+            if (col == WHITE) {
+                shieldMask = 0x0000000000000000ULL;
+                if (file > 0) shieldMask |= 1ULL << (8 + file - 1);
+                shieldMask |= 1ULL << (8 + file);
+                if (file < 7) shieldMask |= 1ULL << (8 + file + 1);
             }
+            else {
+                if (file > 0) shieldMask |= 1ULL << (48 + file - 1);
+                shieldMask |= 1ULL << (48 + file);
+                if (file < 7) shieldMask |= 1ULL << (48 + file + 1);
+            }
+
+            int missing = popcount(shieldMask & ~ourPawn);
 
             mg -= sign * missing * evalParams.pawnShieldPenalty;
         }
