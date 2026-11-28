@@ -17,9 +17,8 @@ inline int pop_lsb_index(Bitboard &bb) {
 }
 
 inline int pop_lsb(Bitboard& b) {
-    Bitboard l = b & -b;
-    int sq = lsb(l);
-    b ^= l;
+    int sq = __builtin_ctzll(b);
+    b &= b - 1;
     return sq;
 }
 
