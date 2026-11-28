@@ -335,20 +335,29 @@ int evaluate(const Board& pos) {
 
         // Rook on open / semi-open file
         {
+            Bitboard ourPawnFiles = 0;
+            Bitboard theirPawnFiles = 0;
+
+            for (int file = 0; file < 8; ++file) {
+                if (ourPawn & file_mask[file])
+                    ourPawnFiles |= 1ULL << file;
+
+                if (theirPawn & file_mask[file])
+                    theirPawnFiles |= 1ULL << file;
+            }
+
             Bitboard rookBB = rook;
 
             while (rookBB) {
                 int sq = pop_lsb(rookBB);
                 int file = sq & 7;
+                Bitboard fileBit = 1ULL << file;
 
-                Bitboard mask = file_mask[file];
-
-                bool usPawn = (ourPawn & mask) != 0;
-                bool themPawn = (theirPawn & mask) != 0;
+                bool usPawn = (ourPawnFiles & fileBit) != 0;
+                bool themPawn = (theirPawnFiles & fileBit) != 0;
 
                 if (!usPawn && !themPawn)
                     mg += sign * evalParams.rookOpenFile;
-
                 else if (!usPawn)
                     mg += sign * evalParams.rookSemiOpenFile;
             }
