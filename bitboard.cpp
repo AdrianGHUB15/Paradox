@@ -28,25 +28,22 @@ const int DIRS[8] = {
 
 
 static Bitboard knight_from(int sq) {
-    Bitboard bb = 0;
-    int r = sq >> 3;
-    int f = sq & 7;
+    Bitboard b = 1ULL << sq;
 
-    auto add = [&](int nr, int nf) {
-        if ((unsigned)nr < 8u && (unsigned)nf < 8u)
-            bb |= 1ULL << (nr * 8 + nf);
-        };
+    const Bitboard notAFile = 0xfefefefefefefefeULL;
+    const Bitboard notHFile = 0x7f7f7f7f7f7f7f7fULL;
+    const Bitboard notABFile = 0xfcfcfcfcfcfcfcfcULL;
+    const Bitboard notGHFile = 0x3f3f3f3f3f3f3f3fULL;
 
-    add(r + 2, f + 1);
-    add(r + 2, f - 1);
-    add(r - 2, f + 1);
-    add(r - 2, f - 1);
-    add(r + 1, f + 2);
-    add(r + 1, f - 2);
-    add(r - 1, f + 2);
-    add(r - 1, f - 2);
-
-    return bb;
+    return
+        ((b << 17) & notAFile) |
+        ((b << 15) & notHFile) |
+        ((b << 10) & notABFile) |
+        ((b << 6) & notGHFile) |
+        ((b >> 17) & notHFile) |
+        ((b >> 15) & notAFile) |
+        ((b >> 10) & notGHFile) |
+        ((b >> 6) & notABFile);
 }
 
 // King attacks
