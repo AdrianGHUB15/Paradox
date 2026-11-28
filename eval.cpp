@@ -357,21 +357,24 @@ int evaluate(const Board& pos) {
         // Doubled and isolated pawns
         {
             for (int file = 0; file < 8; ++file) {
-                int count = popcount(ourPawn & file_mask[file]);
+                Bitboard pawnsOnFile = ourPawn & file_mask[file];
+                int count = popcount(pawnsOnFile);
+
+                if (count == 0)
+                    continue;
+
+                int penalty = 0;
 
                 // Doubled pawns
-                if (count > 1) {
-                    int penalty = (count - 1) * 12;
-                    mg -= sign * penalty;
-                    eg -= sign * penalty;
-                }
+                if (count > 1)
+                    penalty += (count - 1) * 12;
 
                 // Isolated pawns
-                if (count && !(ourPawn & adjacent_files_mask[file])) {
-                    int penalty = count * 10;
-                    mg -= sign * penalty;
-                    eg -= sign * penalty;
-                }
+                if (!(ourPawn & adjacent_files_mask[file]))
+                    penalty += count * 10;
+
+                mg -= sign * penalty;
+                eg -= sign * penalty;
             }
         }
 
@@ -397,17 +400,21 @@ int evaluate(const Board& pos) {
             int kingSq = pos.kingSq[col];
             int file = kingSq & 7;
 
-            int missing = 0;
+            Bitboard shieldMask = 0;
 
-            for (int df = -1; df <= 1; df++) {
-                int f = file + df;
-                if (f < 0 || f > 7) continue;
-
-                int sq = (col == WHITE ? 8 + f : 48 + f);
-
-                if (!(ourPawn & (1ULL << sq)))
-                    missing++;
+            if (col == WHITE) {
+                shieldMask = 0x0000000000000000ULL;
+                if (file > 0) shieldMask |= 1ULL << (8 + file - 1);
+                shieldMask |= 1ULL << (8 + file);
+                if (file < 7) shieldMask |= 1ULL << (8 + file + 1);
             }
+            else {
+                if (file > 0) shieldMask |= 1ULL << (48 + file - 1);
+                shieldMask |= 1ULL << (48 + file);
+                if (file < 7) shieldMask |= 1ULL << (48 + file + 1);
+            }
+
+            int missing = popcount(shieldMask & ~ourPawn);
 
             mg -= sign * missing * evalParams.pawnShieldPenalty;
         }
