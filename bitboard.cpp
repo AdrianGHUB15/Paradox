@@ -474,28 +474,40 @@ void init_magics() {
     // 2. Build bishop attack tables
     for (int sq = 0; sq < 64; sq++) {
         Bitboard mask = bishopMasks[sq];
-        int shift = bishopShifts[sq];
-        int size = 1 << (64 - shift);
 
-        for (int idx = 0; idx < size; idx++) {
-            Bitboard occ = index_to_occ(idx, mask);
+        Bitboard occ = 0;
+
+        do {
             Bitboard attacks = attacks_bishop(sq, occ);
-            uint32_t magicIndex = (uint32_t)(((occ & bishopMasks[sq]) * bishopMagics[sq]) >> bishopShifts[sq]);
+
+            uint32_t magicIndex = (uint32_t)(
+                (occ * bishopMagics[sq]) >> bishopShifts[sq]
+                );
+
             bishopAttacks[sq][magicIndex] = attacks;
-        }
+
+            occ = (occ - mask) & mask;
+
+        } while (occ);
     }
 
     // 3. Build rook attack tables
     for (int sq = 0; sq < 64; sq++) {
         Bitboard mask = rookMasks[sq];
-        int shift = rookShifts[sq];
-        int size = 1 << (64 - shift);
 
-        for (int idx = 0; idx < size; idx++) {
-            Bitboard occ = index_to_occ(idx, mask);
+        Bitboard occ = 0;
+
+        do {
             Bitboard attacks = attacks_rook(sq, occ);
-            uint32_t magicIndex = (uint32_t)(((occ & rookMasks[sq]) * rookMagics[sq]) >> rookShifts[sq]);
+
+            uint32_t magicIndex = (uint32_t)(
+                (occ * rookMagics[sq]) >> rookShifts[sq]
+                );
+
             rookAttacks[sq][magicIndex] = attacks;
-        }
+
+            occ = (occ - mask) & mask;
+
+        } while (occ);
     }
 }
