@@ -188,10 +188,10 @@ int evaluate(const Board& pos) {
                               (p == ROOK) ? 2 :
                               (p == QUEEN) ? 4 : 0;
 
-            phase += phaseWeight * popcount(bb);
-
             while (bb) {
                 int sq = pop_lsb(bb);
+                phase += phaseWeight;
+
                 int m = (col == WHITE ? sq : mirror_sq(sq));
 
                 mg += sign * evalParams.pieceMG[p];
