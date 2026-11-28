@@ -185,10 +185,40 @@ int evaluate(const Board& pos) {
             Bitboard bb = pos.pieceBB[col][p];
 
             int phaseWeight = (p == KNIGHT || p == BISHOP) ? 1 :
-                              (p == ROOK) ? 2 :
-                              (p == QUEEN) ? 4 : 0;
+                (p == ROOK) ? 2 :
+                (p == QUEEN) ? 4 : 0;
 
             phase += phaseWeight * popcount(bb);
+
+            const int* pstMG = nullptr;
+            const int* pstEG = nullptr;
+
+            switch (p) {
+            case PAWN:
+                pstMG = evalParams.pstPawnMG;
+                pstEG = evalParams.pstPawnEG;
+                break;
+            case KNIGHT:
+                pstMG = evalParams.pstKnightMG;
+                pstEG = evalParams.pstKnightEG;
+                break;
+            case BISHOP:
+                pstMG = evalParams.pstBishopMG;
+                pstEG = evalParams.pstBishopEG;
+                break;
+            case ROOK:
+                pstMG = evalParams.pstRookMG;
+                pstEG = evalParams.pstRookEG;
+                break;
+            case QUEEN:
+                pstMG = evalParams.pstQueenMG;
+                pstEG = evalParams.pstQueenEG;
+                break;
+            case KING:
+                pstMG = evalParams.pstKingMG;
+                pstEG = evalParams.pstKingEG;
+                break;
+            }
 
             while (bb) {
                 int sq = pop_lsb(bb);
@@ -197,32 +227,8 @@ int evaluate(const Board& pos) {
                 mg += sign * evalParams.pieceMG[p];
                 eg += sign * evalParams.pieceEG[p];
 
-                switch (p) {
-                case PAWN:
-                    mg += sign * evalParams.pstPawnMG[m];
-                    eg += sign * evalParams.pstPawnEG[m];
-                    break;
-                case KNIGHT:
-                    mg += sign * evalParams.pstKnightMG[m];
-                    eg += sign * evalParams.pstKnightEG[m];
-                    break;
-                case BISHOP:
-                    mg += sign * evalParams.pstBishopMG[m];
-                    eg += sign * evalParams.pstBishopEG[m];
-                    break;
-                case ROOK:
-                    mg += sign * evalParams.pstRookMG[m];
-                    eg += sign * evalParams.pstRookEG[m];
-                    break;
-                case QUEEN:
-                    mg += sign * evalParams.pstQueenMG[m];
-                    eg += sign * evalParams.pstQueenEG[m];
-                    break;
-                case KING:
-                    mg += sign * evalParams.pstKingMG[m];
-                    eg += sign * evalParams.pstKingEG[m];
-                    break;
-                }
+                mg += sign * pstMG[m];
+                eg += sign * pstEG[m];
             }
         }
     }
